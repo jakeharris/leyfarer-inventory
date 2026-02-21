@@ -165,3 +165,8 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
   - quick add + edit form for freeform items
   - optional magic details with deferred completeness
   - `Needs Details` badge and filter for incomplete magic items
+- Phase 04 inventory usage UX:
+  - keyword search + source type/source reference filters
+  - quick filters for `Attuned`, `Consumables`, and `Needs Details`
+  - attunement controls with replace-one-or-cancel flow when all 3 slots are full
+  - one-tap consumable spend actions (including auto-remove when quantity reaches zero)

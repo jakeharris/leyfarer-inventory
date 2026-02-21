@@ -12,6 +12,8 @@ interface FormState {
   tags: string;
   notes: string;
   isMagic: boolean;
+  isConsumable: boolean;
+  quantity: string;
   rarity: string;
   requiresAttunement: boolean;
   attuned: boolean;
@@ -26,6 +28,16 @@ interface FormState {
   spells: string;
 }
 
+interface ListFilters {
+  search: string;
+  sourceType: SourceType | 'all';
+  sourceRef: string;
+  attunedOnly: boolean;
+  consumableOnly: boolean;
+}
+
+const ALL_SOURCES_VALUE = '__all_sources__';
+
 const defaultFormState = (): FormState => ({
   name: '',
   sourceType: 'other',
@@ -34,6 +46,8 @@ const defaultFormState = (): FormState => ({
   tags: '',
   notes: '',
   isMagic: false,
+  isConsumable: false,
+  quantity: '1',
   rarity: '',
   requiresAttunement: false,
   attuned: false,
@@ -46,6 +60,14 @@ const defaultFormState = (): FormState => ({
   saveDc: '',
   saveAbility: '',
   spells: ''
+});
+
+const defaultFilters = (): ListFilters => ({
+  search: '',
+  sourceType: 'all',
+  sourceRef: ALL_SOURCES_VALUE,
+  attunedOnly: false,
+  consumableOnly: false
 });
 
 const toNumber = (value: string): number | undefined => {
@@ -64,6 +86,23 @@ const splitCsv = (value: string): string[] =>
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
 
+const includesNeedle = (value: string | undefined, needle: string): boolean =>
+  Boolean(value && value.toLowerCase().includes(needle));
+
+const isAttunedItem = (item: Item): boolean => Boolean(item.magicDetails?.attuned);
+const isConsumableItem = (item: Item): boolean => Boolean(item.isConsumable);
+
+const sortInventoryItems = (left: Item, right: Item): number => {
+  const leftPriority = isAttunedItem(left) ? 0 : isConsumableItem(left) ? 1 : 2;
+  const rightPriority = isAttunedItem(right) ? 0 : isConsumableItem(right) ? 1 : 2;
+
+  if (leftPriority !== rightPriority) {
+    return leftPriority - rightPriority;
+  }
+
+  return left.name.localeCompare(right.name);
+};
+
 const toFormState = (item: Item): FormState => ({
   name: item.name,
   sourceType: item.sourceType,
@@ -72,6 +111,8 @@ const toFormState = (item: Item): FormState => ({
   tags: item.tags.join(', '),
   notes: item.notes ?? '',
   isMagic: item.isMagic,
+  isConsumable: Boolean(item.isConsumable),
+  quantity: String(item.quantity ?? 1),
   rarity: item.magicDetails?.rarity ?? '',
   requiresAttunement: Boolean(item.magicDetails?.requiresAttunement),
   attuned: Boolean(item.magicDetails?.attuned),
@@ -139,6 +180,7 @@ const buildMagicDetails = (form: FormState): MagicItemDetails | undefined => {
 
 const toDraft = (form: FormState): ItemDraft => {
   const magicDetails = buildMagicDetails(form);
+  const parsedQuantity = toNumber(form.quantity);
 
   return {
     name: form.name.trim(),
@@ -149,6 +191,8 @@ const toDraft = (form: FormState): ItemDraft => {
     sourceRef: form.sourceRef.trim() || undefined,
     tags: splitCsv(form.tags),
     notes: form.notes.trim() || undefined,
+    isConsumable: form.isConsumable,
+    quantity: form.isConsumable ? parsedQuantity ?? 1 : undefined,
     magicDetails
   };
 };
@@ -159,20 +203,20 @@ export const HomeRoute = () => {
   const repository = useMemo(() => createItemRepository(storageService), []);
   const [items, setItems] = useState<Item[]>([]);
   const [form, setForm] = useState<FormState>(() => defaultFormState());
-  const [needsDetailsOnly, setNeedsDetailsOnly] = useState(false);
+  const [filters, setFilters] = useState<ListFilters>(() => defaultFilters());
+  const [showFilters, setShowFilters] = useState(false);
   const [showComposer, setShowComposer] = useState(false);
   const [showExtraFields, setShowExtraFields] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [attunementTargetId, setAttunementTargetId] = useState<string | null>(null);
+  const [replacementId, setReplacementId] = useState<string>('');
   const [status, setStatus] = useState<LoadState>('loading');
   const [error, setError] = useState<string | null>(null);
 
-  const loadItems = useCallback(
-    async (filterNeedsDetails: boolean): Promise<void> => {
-      const nextItems = await repository.list(filterNeedsDetails ? { needsDetails: true } : {});
-      setItems(nextItems);
-    },
-    [repository]
-  );
+  const loadItems = useCallback(async (): Promise<void> => {
+    const nextItems = await repository.list({});
+    setItems(nextItems);
+  }, [repository]);
 
   useEffect(() => {
     let cancelled = false;
@@ -183,7 +227,7 @@ export const HomeRoute = () => {
         if (cancelled) {
           return;
         }
-        await loadItems(needsDetailsOnly);
+        await loadItems();
         if (!cancelled) {
           setStatus('ready');
         }
@@ -200,7 +244,102 @@ export const HomeRoute = () => {
     return () => {
       cancelled = true;
     };
-  }, [loadItems, needsDetailsOnly]);
+  }, [loadItems]);
+
+  const sourceRefOptions = useMemo(() => {
+    const refs = items
+      .filter((item) => (filters.sourceType === 'all' ? true : item.sourceType === filters.sourceType))
+      .map((item) => item.sourceRef)
+      .filter((sourceRef): sourceRef is string => Boolean(sourceRef));
+
+    return Array.from(new Set(refs)).sort((left, right) => left.localeCompare(right));
+  }, [filters.sourceType, items]);
+
+  useEffect(() => {
+    if (filters.sourceRef === ALL_SOURCES_VALUE) {
+      return;
+    }
+
+    if (!sourceRefOptions.includes(filters.sourceRef)) {
+      setFilters((prev) => ({ ...prev, sourceRef: ALL_SOURCES_VALUE }));
+    }
+  }, [filters.sourceRef, sourceRefOptions]);
+
+  const attunedItems = useMemo(
+    () => items.filter((item) => Boolean(item.magicDetails?.attuned)),
+    [items]
+  );
+
+  const filteredItems = useMemo(() => {
+    const searchNeedle = filters.search.trim().toLowerCase();
+
+    return items.filter((item) => {
+      if (filters.sourceType !== 'all' && item.sourceType !== filters.sourceType) {
+        return false;
+      }
+
+      if (filters.sourceRef !== ALL_SOURCES_VALUE && item.sourceRef !== filters.sourceRef) {
+        return false;
+      }
+
+      if (filters.attunedOnly && !item.magicDetails?.attuned) {
+        return false;
+      }
+
+      if (filters.consumableOnly && !item.isConsumable) {
+        return false;
+      }
+
+      if (!searchNeedle) {
+        return true;
+      }
+
+      const tagMatch = item.tags.some((tag) => tag.toLowerCase().includes(searchNeedle));
+
+      return (
+        includesNeedle(item.name, searchNeedle) ||
+        includesNeedle(item.sourceRef, searchNeedle) ||
+        includesNeedle(item.description, searchNeedle) ||
+        includesNeedle(item.notes, searchNeedle) ||
+        tagMatch
+      );
+    });
+  }, [filters, items]);
+
+  const sortedFilteredItems = useMemo(
+    () => [...filteredItems].sort(sortInventoryItems),
+    [filteredItems]
+  );
+
+  const hasSearch = filters.search.trim().length > 0;
+
+  const groupedItems = useMemo(
+    () =>
+      [
+        {
+          key: 'attuned',
+          title: 'Attuned Items',
+          items: sortedFilteredItems.filter((item) => isAttunedItem(item))
+        },
+        {
+          key: 'consumables',
+          title: 'Consumables',
+          items: sortedFilteredItems.filter((item) => !isAttunedItem(item) && isConsumableItem(item))
+        },
+        {
+          key: 'other',
+          title: 'Other Items',
+          items: sortedFilteredItems.filter((item) => !isAttunedItem(item) && !isConsumableItem(item))
+        }
+      ].filter((section) => section.items.length > 0),
+    [sortedFilteredItems]
+  );
+
+  const hasActiveFilters =
+    filters.sourceType !== 'all' ||
+    filters.sourceRef !== ALL_SOURCES_VALUE ||
+    filters.attunedOnly ||
+    filters.consumableOnly;
 
   const onSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -217,7 +356,7 @@ export const HomeRoute = () => {
       setEditingId(null);
       setShowComposer(false);
       setShowExtraFields(false);
-      await loadItems(needsDetailsOnly);
+      await loadItems();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Unable to save item');
     }
@@ -247,6 +386,134 @@ export const HomeRoute = () => {
     setError(null);
   };
 
+  const onToggleAttunement = async (item: Item) => {
+    if (!item.isMagic || !item.magicDetails?.requiresAttunement) {
+      return;
+    }
+
+    setError(null);
+
+    try {
+      if (item.magicDetails?.attuned) {
+        await repository.setAttuned(item.id, false);
+        await loadItems();
+        return;
+      }
+
+      if (attunedItems.length < 3) {
+        await repository.setAttuned(item.id, true);
+        await loadItems();
+        return;
+      }
+
+      setAttunementTargetId(item.id);
+      setReplacementId(attunedItems[0]?.id ?? '');
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Unable to update attunement');
+    }
+  };
+
+  const closeAttunementModal = () => {
+    setAttunementTargetId(null);
+    setReplacementId('');
+  };
+
+  const onConfirmReplacement = async () => {
+    if (!attunementTargetId || !replacementId) {
+      return;
+    }
+
+    setError(null);
+
+    try {
+      await repository.replaceAttunedItem(attunementTargetId, replacementId);
+      closeAttunementModal();
+      await loadItems();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Unable to replace attuned item');
+    }
+  };
+
+  const onSpendConsumable = async (item: Item) => {
+    if (!item.isConsumable) {
+      return;
+    }
+
+    setError(null);
+
+    try {
+      await repository.spendConsumable(item.id);
+      await loadItems();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Unable to spend consumable');
+    }
+  };
+
+  const renderItemCard = (item: Item) => {
+    const isAttunable = item.isMagic && Boolean(item.magicDetails?.requiresAttunement);
+    const quantity = item.quantity ?? 1;
+
+    return (
+      <li key={item.id} className="item-card">
+        <div className="item-card__header">
+          <strong>{item.name}</strong>
+          <div className="badge-row">
+            {item.isMagic && !item.isComplete ? <span className="badge badge-warning">Needs Details</span> : null}
+            {item.magicDetails?.attuned ? <span className="badge badge-attuned">Attuned</span> : null}
+            {item.isConsumable ? <span className="badge badge-consumable">x{quantity}</span> : null}
+          </div>
+        </div>
+
+        <p>
+          {item.sourceType}
+          {item.sourceRef ? ` - ${item.sourceRef}` : ''}
+        </p>
+
+        {item.description ? <p>{item.description}</p> : null}
+        {item.tags.length > 0 ? (
+          <div className="tag-pills" aria-label="Item tags">
+            {item.tags.map((tag) => (
+              <span key={tag} className="tag-pill">
+                {tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="item-actions">
+          <button type="button" onClick={() => onEdit(item)}>
+            Edit
+          </button>
+
+          {isAttunable ? (
+            <button type="button" onClick={() => void onToggleAttunement(item)}>
+              {item.magicDetails?.attuned ? 'Unattune' : 'Attune'}
+            </button>
+          ) : null}
+
+          {item.isConsumable ? (
+            <button type="button" onClick={() => void onSpendConsumable(item)}>
+              Spend 1
+            </button>
+          ) : null}
+        </div>
+
+        {item.notes ? (
+          <details className="item-details" open>
+            <summary>Notes</summary>
+            <div className="item-details__content">
+              <p>{item.notes}</p>
+            </div>
+          </details>
+        ) : null}
+      </li>
+    );
+  };
+
+  const attunementTarget = attunementTargetId
+    ? items.find((item) => item.id === attunementTargetId) ?? null
+    : null;
+
   if (status === 'loading') {
     return (
       <section className="panel">
@@ -270,54 +537,165 @@ export const HomeRoute = () => {
       <header className="inventory-header">
         <div>
           <h2>Inventory</h2>
-          <p data-testid="shell-status">{items.length} item(s)</p>
+          <p data-testid="shell-status">
+            {sortedFilteredItems.length} shown / {items.length} total
+          </p>
         </div>
         <button type="button" onClick={startAdd}>
           Add Item
         </button>
       </header>
 
-      <div className="inventory-controls">
-        <label className="checkbox-field">
+      <div className="inventory-controls inventory-controls--compact">
+        <div className="search-filter-row">
           <input
-            type="checkbox"
-            checked={needsDetailsOnly}
-            onChange={(event) => setNeedsDetailsOnly(event.target.checked)}
+            type="search"
+            aria-label="Search inventory"
+            placeholder="Search by name, notes, tags..."
+            value={filters.search}
+            onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
           />
-          Needs Details Only
-        </label>
+          <button
+            type="button"
+            className="search-filter-row__button"
+            onClick={() => setShowFilters((prev) => !prev)}
+          >
+            Filters
+          </button>
+        </div>
+
+        <div className="inventory-controls__actions">
+          {hasActiveFilters ? (
+            <button type="button" onClick={() => setFilters(defaultFilters())}>
+              Clear filters
+            </button>
+          ) : null}
+        </div>
       </div>
 
-      {items.length > 0 ? (
-        <ul className="item-list" aria-label="Inventory items">
-          {items.map((item) => (
-            <li key={item.id} className="item-card">
-              <div className="item-card__header">
-                <strong>{item.name}</strong>
-                {item.isMagic && !item.isComplete ? (
-                  <span className="badge badge-warning">Needs Details</span>
-                ) : null}
-              </div>
-              <p>
-                {item.sourceType}
-                {item.sourceRef ? ` - ${item.sourceRef}` : ''}
-              </p>
-              {item.description ? <p>{item.description}</p> : null}
-              <button type="button" className="button-secondary" onClick={() => onEdit(item)}>
-                Edit
-              </button>
-            </li>
-          ))}
-        </ul>
+      {showFilters ? (
+        <section className="filters-modal" role="dialog" aria-modal="true" aria-label="Filters">
+          <div className="composer-header">
+            <h3>Filters</h3>
+            <button type="button" onClick={() => setShowFilters(false)}>
+              Done
+            </button>
+          </div>
+
+          <div className="field-grid">
+            <label className="field">
+              Source Type
+              <select
+                value={filters.sourceType}
+                onChange={(event) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    sourceType: event.target.value as SourceType | 'all',
+                    sourceRef: ALL_SOURCES_VALUE
+                  }))
+                }
+              >
+                <option value="all">All</option>
+                <option value="mainSession">Main Session</option>
+                <option value="sideQuest">Side Quest</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+
+            <label className="field">
+              Source Ref
+              <select
+                value={filters.sourceRef}
+                onChange={(event) => setFilters((prev) => ({ ...prev, sourceRef: event.target.value }))}
+              >
+                <option value={ALL_SOURCES_VALUE}>All</option>
+                {sourceRefOptions.map((sourceRef) => (
+                  <option key={sourceRef} value={sourceRef}>
+                    {sourceRef}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <label className="checkbox-field">
+            <input
+              type="checkbox"
+              checked={filters.attunedOnly}
+              onChange={(event) => setFilters((prev) => ({ ...prev, attunedOnly: event.target.checked }))}
+            />
+            Attuned Only
+          </label>
+
+          <label className="checkbox-field">
+            <input
+              type="checkbox"
+              checked={filters.consumableOnly}
+              onChange={(event) => setFilters((prev) => ({ ...prev, consumableOnly: event.target.checked }))}
+            />
+            Consumables Only
+          </label>
+        </section>
+      ) : null}
+
+      {sortedFilteredItems.length > 0 ? (
+        hasSearch ? (
+          <ul className="item-list" aria-label="Inventory items">
+            {sortedFilteredItems.map((item) => renderItemCard(item))}
+          </ul>
+        ) : (
+          <div className="inventory-sections">
+            {groupedItems.map((section) => (
+              <section key={section.key} className="inventory-section">
+                <h3>{section.title}</h3>
+                <ul className="item-list" aria-label={`${section.title} items`}>
+                  {section.items.map((item) => renderItemCard(item))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        )
       ) : (
-        <p className="empty-state">No items yet. Use Add Item to capture loot quickly.</p>
+        <p className="empty-state">No items match the current filters.</p>
       )}
+
+      {attunementTarget ? (
+        <section className="attunement-modal" role="dialog" aria-modal="true" aria-label="Attunement full">
+          <h3>Attunement Slots Full</h3>
+          <p>
+            Choose one attuned item to replace with <strong>{attunementTarget.name}</strong>.
+          </p>
+
+          <div className="attunement-replace-list" role="radiogroup" aria-label="Attuned items">
+            {attunedItems.map((item) => (
+              <label key={item.id} className="checkbox-field">
+                <input
+                  type="radio"
+                  name="attunement-replacement"
+                  checked={replacementId === item.id}
+                  onChange={() => setReplacementId(item.id)}
+                />
+                {item.name}
+              </label>
+            ))}
+          </div>
+
+          <div className="form-actions">
+            <button type="button" onClick={() => void onConfirmReplacement()} disabled={!replacementId}>
+              Replace Selected
+            </button>
+            <button type="button" className="button-secondary" onClick={closeAttunementModal}>
+              Cancel
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {showComposer ? (
         <form className="item-form" onSubmit={onSave}>
           <div className="composer-header">
             <h3>{editingId ? 'Edit Item' : 'Quick Add Item'}</h3>
-            <button type="button" className="button-secondary" onClick={closeComposer}>
+            <button type="button" onClick={closeComposer}>
               Close
             </button>
           </div>
@@ -333,22 +711,40 @@ export const HomeRoute = () => {
             />
           </label>
 
-          <label className="field checkbox-field">
-            <input
-              type="checkbox"
-              checked={form.isMagic}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, isMagic: event.target.checked, attuned: false }))
-              }
-            />
-            Magic Item
-          </label>
+          <div className="field-grid">
+            <label className="field checkbox-field">
+              <input
+                type="checkbox"
+                checked={form.isMagic}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, isMagic: event.target.checked, attuned: false }))
+                }
+              />
+              Magic Item
+            </label>
 
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={() => setShowExtraFields((prev) => !prev)}
-          >
+            <label className="field checkbox-field">
+              <input
+                type="checkbox"
+                checked={form.isConsumable}
+                onChange={(event) => setForm((prev) => ({ ...prev, isConsumable: event.target.checked }))}
+              />
+              Consumable
+            </label>
+          </div>
+
+          {form.isConsumable ? (
+            <label className="field">
+              Quantity
+              <input
+                inputMode="numeric"
+                value={form.quantity}
+                onChange={(event) => setForm((prev) => ({ ...prev, quantity: event.target.value }))}
+              />
+            </label>
+          ) : null}
+
+          <button type="button" onClick={() => setShowExtraFields((prev) => !prev)}>
             {showExtraFields ? 'Hide Optional Fields' : 'Show Optional Fields'}
           </button>
 
@@ -555,6 +951,12 @@ export const HomeRoute = () => {
             </p>
           ) : null}
         </form>
+      ) : null}
+
+      {error && !showComposer ? (
+        <p className="error-text" role="alert">
+          {error}
+        </p>
       ) : null}
     </section>
   );

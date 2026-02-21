@@ -25,7 +25,7 @@ export const InstallBanner = () => {
             Install app
           </button>
         ) : null}
-        <button type="button" className="button-secondary" onClick={dismiss}>
+        <button type="button" onClick={dismiss}>
           Dismiss
         </button>
       </div>

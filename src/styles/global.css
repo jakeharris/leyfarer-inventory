@@ -166,6 +166,78 @@ button:focus-visible {
   gap: 0.75rem;
 }
 
+.inventory-controls--grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.filter-chips {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.inventory-controls--compact {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.inventory-controls__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.search-filter-row {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid #c4d0ee;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.search-filter-row input {
+  flex: 1;
+  width: auto;
+  border: 0;
+  border-radius: 0;
+}
+
+.search-filter-row__button {
+  border-radius: 0;
+  border-left: 1px solid #c4d0ee;
+  padding-left: 0.9rem;
+  padding-right: 0.9rem;
+}
+
+.filters-modal {
+  border: 1px solid #cfd9f3;
+  border-radius: 14px;
+  background: #f8faff;
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.filters-modal h3 {
+  margin: 0;
+}
+
+.inventory-sections {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.inventory-section {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.inventory-section h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #2d426f;
+}
+
 .item-list {
   list-style: none;
   margin: 0;
@@ -208,11 +280,36 @@ button:focus-visible {
   color: #344675;
 }
 
+.tag-pills {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: #e6ecfa;
+  color: #223a69;
+}
+
 .item-card__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+.badge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .badge {
@@ -227,6 +324,63 @@ button:focus-visible {
 .badge-warning {
   background: #f9e6b5;
   color: #563800;
+}
+
+.badge-attuned {
+  background: #d5e5ff;
+  color: #133e85;
+}
+
+.badge-consumable {
+  background: #d6f2e4;
+  color: #0f5838;
+}
+
+.item-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding-top: 0.25rem;
+}
+
+.item-details {
+  border-top: 1px solid #d5dff7;
+  padding-top: 0.45rem;
+}
+
+.item-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #2f4370;
+}
+
+.item-details__content {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.item-details__content p {
+  margin: 0;
+}
+
+.attunement-modal {
+  border: 1px solid #cfd9f3;
+  border-radius: 14px;
+  background: #f8faff;
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.attunement-modal h3,
+.attunement-modal p {
+  margin: 0;
+}
+
+.attunement-replace-list {
+  display: grid;
+  gap: 0.4rem;
 }
 
 .error-text {
@@ -257,14 +411,14 @@ button {
   border: 0;
   border-radius: 999px;
   padding: 0.5rem 0.75rem;
-  background: #f2e8c8;
-  color: #1d2950;
+  background: #31416f;
+  color: #edf2ff;
   font-weight: 600;
 }
 
 .button-secondary {
-  background: #31416f;
-  color: #edf2ff;
+  background: #f2e8c8;
+  color: #1d2950;
 }
 
 .bottom-nav {

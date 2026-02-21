@@ -103,4 +103,59 @@ describe('ItemRepository', () => {
       )
     ).rejects.toThrow(DomainValidationError);
   });
+
+  it('supports replacing an attuned item when slots are full', async () => {
+    const one = await repository.create(
+      createItemDraft({ name: 'Attuned-1', magicDetails: { requiresAttunement: true, attuned: true } })
+    );
+    const two = await repository.create(
+      createItemDraft({ name: 'Attuned-2', magicDetails: { requiresAttunement: true, attuned: true } })
+    );
+    const three = await repository.create(
+      createItemDraft({ name: 'Attuned-3', magicDetails: { requiresAttunement: true, attuned: true } })
+    );
+    const candidate = await repository.create(
+      createItemDraft({ name: 'Candidate', magicDetails: { requiresAttunement: true, attuned: false } })
+    );
+
+    await repository.replaceAttunedItem(candidate.id, two.id);
+
+    const attunedItems = await repository.list({ isAttuned: true });
+    expect(attunedItems.map((item) => item.name).sort()).toEqual(
+      [one.name, three.name, candidate.name].sort()
+    );
+  });
+
+  it('decrements consumables and removes at zero', async () => {
+    const stack = await repository.create(
+      createItemDraft({
+        name: 'Potion Stack',
+        isMagic: false,
+        magicDetails: undefined,
+        isConsumable: true,
+        quantity: 2
+      })
+    );
+
+    const single = await repository.create(
+      createItemDraft({
+        name: 'Potion Single',
+        isMagic: false,
+        magicDetails: undefined,
+        isConsumable: true,
+        quantity: 1
+      })
+    );
+
+    const updated = await repository.spendConsumable(stack.id);
+    expect(updated?.quantity).toBe(1);
+
+    const removed = await repository.spendConsumable(single.id);
+    expect(removed).toBeUndefined();
+
+    const remaining = await repository.list({ isConsumable: true });
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].id).toBe(stack.id);
+    expect(remaining[0].quantity).toBe(1);
+  });
 });

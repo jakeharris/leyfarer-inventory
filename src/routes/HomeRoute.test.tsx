@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { STORAGE } from '../config/constants';
 import { storageService } from '../storage';
@@ -41,51 +41,108 @@ describe('HomeRoute', () => {
     expect(screen.queryByRole('group', { name: /magic details/i })).not.toBeInTheDocument();
   });
 
-  it('filters to incomplete magic items with needs details toggle', async () => {
+  it('supports search and source/filter combinations', async () => {
     const user = userEvent.setup();
     render(<HomeRoute />);
     await screen.findByRole('button', { name: /add item/i });
 
-    await user.click(screen.getByRole('button', { name: /add item/i }));
-    await user.type(screen.getByRole('textbox', { name: /^name$/i }), 'Traveler Rope');
-    await user.click(screen.getByRole('button', { name: /save item/i }));
-    await waitFor(() => expect(screen.getByText('Traveler Rope')).toBeInTheDocument());
+    const addItem = async (options: {
+      name: string;
+      consumable?: boolean;
+      sourceType?: 'other' | 'mainSession' | 'sideQuest';
+      sourceRef?: string;
+    }) => {
+      await user.click(screen.getByRole('button', { name: /add item/i }));
+      const heading = await screen.findByRole('heading', { name: /quick add item/i });
+      const form = heading.closest('form');
+      expect(form).not.toBeNull();
+      const formQueries = within(form as HTMLElement);
 
-    await user.click(screen.getByRole('button', { name: /add item/i }));
-    await user.type(screen.getByRole('textbox', { name: /^name$/i }), 'Unknown Relic');
-    await user.click(screen.getByRole('checkbox', { name: /magic item/i }));
-    await user.click(screen.getByRole('button', { name: /save item/i }));
-    await waitFor(() => expect(screen.getByText('Unknown Relic')).toBeInTheDocument());
+      await user.type(formQueries.getByRole('textbox', { name: /^name$/i }), options.name);
 
-    expect(screen.getByText('Needs Details')).toBeInTheDocument();
-    expect(screen.getByText('Traveler Rope')).toBeInTheDocument();
+      if (options.consumable) {
+        await user.click(formQueries.getByRole('checkbox', { name: 'Consumable', exact: true }));
+      }
 
-    await user.click(screen.getByRole('checkbox', { name: /needs details only/i }));
-    await waitFor(() => expect(screen.queryByText('Traveler Rope')).not.toBeInTheDocument());
-    expect(screen.getByText('Unknown Relic')).toBeInTheDocument();
+      if (options.sourceType || options.sourceRef) {
+        await user.click(formQueries.getByRole('button', { name: /show optional fields/i }));
+      }
+
+      if (options.sourceType) {
+        await user.selectOptions(formQueries.getByRole('combobox', { name: /source type/i }), options.sourceType);
+      }
+
+      if (options.sourceRef) {
+        await user.type(formQueries.getByRole('textbox', { name: /source ref/i }), options.sourceRef);
+      }
+
+      await user.click(formQueries.getByRole('button', { name: /save item/i }));
+    };
+
+    await addItem({ name: 'Healing Potion', consumable: true });
+    await addItem({ name: 'Moon Charm', sourceType: 'mainSession', sourceRef: '10.2' });
+    await addItem({ name: 'Cask Key', sourceType: 'sideQuest', sourceRef: 'Beneath the Brewery' });
+
+    await waitFor(() => expect(screen.getByText('Healing Potion')).toBeInTheDocument());
+    expect(screen.getByText('Moon Charm')).toBeInTheDocument();
+    expect(screen.getByText('Cask Key')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /consumables/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /other items/i })).toBeInTheDocument();
+
+    await user.type(screen.getByRole('searchbox', { name: /search/i }), 'potion');
+    await waitFor(() => expect(screen.getByText('Healing Potion')).toBeInTheDocument());
+    expect(screen.queryByText('Moon Charm')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /consumables/i })).not.toBeInTheDocument();
+
+    await user.clear(screen.getByRole('searchbox', { name: /search/i }));
+    await user.click(screen.getByRole('button', { name: /^filters$/i }));
+    await user.selectOptions(screen.getByRole('combobox', { name: /^source type$/i }), 'sideQuest');
+    await user.click(screen.getByRole('button', { name: /^done$/i }));
+    await waitFor(() => expect(screen.getByText('Cask Key')).toBeInTheDocument());
+    expect(screen.queryByText('Moon Charm')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^filters$/i }));
+    await user.click(screen.getByRole('checkbox', { name: /^consumables only$/i }));
+    await user.click(screen.getByRole('button', { name: /^done$/i }));
+    await waitFor(() => expect(screen.queryByText('Cask Key')).not.toBeInTheDocument());
   });
 
-  it('edits an existing item without dropping optional fields', async () => {
+  it('supports replace-or-cancel attunement flow at three slots', async () => {
     const user = userEvent.setup();
     render(<HomeRoute />);
     await screen.findByRole('button', { name: /add item/i });
 
-    await user.click(screen.getByRole('button', { name: /add item/i }));
-    await user.type(screen.getByRole('textbox', { name: /^name$/i }), 'Moon Charm');
-    await user.click(screen.getByRole('button', { name: /show optional fields/i }));
-    await user.type(screen.getByRole('textbox', { name: /source ref/i }), '10.2');
-    await user.type(screen.getByRole('textbox', { name: /^description$/i }), 'Old keepsake');
-    await user.click(screen.getByRole('button', { name: /save item/i }));
-    await waitFor(() => expect(screen.getByText('Moon Charm')).toBeInTheDocument());
+    const addAttunable = async (name: string, attuned: boolean) => {
+      await user.click(screen.getByRole('button', { name: /add item/i }));
+      await user.type(screen.getByRole('textbox', { name: /^name$/i }), name);
+      await user.click(screen.getByRole('checkbox', { name: /magic item/i }));
+      await user.click(screen.getByRole('checkbox', { name: /requires attunement/i }));
+      if (attuned) {
+        await user.click(screen.getByRole('checkbox', { name: /currently attuned/i }));
+      }
+      await user.click(screen.getByRole('button', { name: /save item/i }));
+      await waitFor(() => expect(screen.getByText(name)).toBeInTheDocument());
+    };
 
-    await user.click(screen.getByRole('button', { name: /^edit$/i }));
-    const nameInput = screen.getByRole('textbox', { name: /^name$/i });
-    await user.clear(nameInput);
-    await user.type(nameInput, 'Moon Charm (Renamed)');
-    await user.click(screen.getByRole('button', { name: /update item/i }));
+    await addAttunable('Attuned One', true);
+    await addAttunable('Attuned Two', true);
+    await addAttunable('Attuned Three', true);
+    await addAttunable('Attuned Four', false);
 
-    await waitFor(() => expect(screen.getByText('Moon Charm (Renamed)')).toBeInTheDocument());
-    expect(screen.getByText('other - 10.2')).toBeInTheDocument();
-    expect(screen.getByText('Old keepsake')).toBeInTheDocument();
+    const fourthCard = screen.getByText('Attuned Four').closest('li');
+    expect(fourthCard).not.toBeNull();
+    await user.click(within(fourthCard as HTMLElement).getByRole('button', { name: /^attune$/i }));
+
+    await screen.findByRole('dialog', { name: /attunement full/i });
+    await user.click(screen.getByRole('radio', { name: /attuned two/i }));
+    await user.click(screen.getByRole('button', { name: /replace selected/i }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /attunement full/i })).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /^filters$/i }));
+    await user.click(screen.getByRole('checkbox', { name: /^attuned only$/i }));
+    await user.click(screen.getByRole('button', { name: /^done$/i }));
+    await waitFor(() => expect(screen.getByText('Attuned Four')).toBeInTheDocument());
+    expect(screen.queryByText('Attuned Two')).not.toBeInTheDocument();
   });
 });

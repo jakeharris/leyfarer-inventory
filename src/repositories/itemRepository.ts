@@ -146,6 +146,150 @@ export class ItemRepository {
     }
   }
 
+  async setAttuned(id: string, attuned: boolean): Promise<Item> {
+    const itemId = id.trim();
+    if (!itemId) {
+      throw new DomainValidationError('Invalid id', [{ path: 'id', message: 'id is required' }]);
+    }
+
+    const items = await this.readAll();
+    const index = items.findIndex((item) => item.id === itemId);
+    if (index === -1) {
+      throw new DomainValidationError('Missing item', [{ path: 'id', message: 'item was not found' }]);
+    }
+
+    const current = items[index];
+    if (!current.isMagic || !current.magicDetails?.requiresAttunement) {
+      throw new DomainValidationError('Invalid attunement target', [
+        {
+          path: 'magicDetails.requiresAttunement',
+          message: 'Item must be a magic item that requires attunement'
+        }
+      ]);
+    }
+
+    const next = normalizeItem({
+      ...current,
+      magicDetails: {
+        ...current.magicDetails,
+        attuned
+      }
+    });
+
+    const nextItems = [...items];
+    nextItems[index] = next;
+    ensureAttunementLimit(nextItems);
+    await this.writeAll(nextItems);
+
+    return next;
+  }
+
+  async replaceAttunedItem(nextItemId: string, previousItemId: string): Promise<Item> {
+    const targetId = nextItemId.trim();
+    const replaceId = previousItemId.trim();
+
+    if (!targetId || !replaceId) {
+      throw new DomainValidationError('Invalid id', [{ path: 'id', message: 'id is required' }]);
+    }
+
+    if (targetId === replaceId) {
+      throw new DomainValidationError('Invalid attunement replacement', [
+        { path: 'id', message: 'target and replacement must be different items' }
+      ]);
+    }
+
+    const items = await this.readAll();
+    const nextIndex = items.findIndex((item) => item.id === targetId);
+    const previousIndex = items.findIndex((item) => item.id === replaceId);
+
+    if (nextIndex === -1 || previousIndex === -1) {
+      throw new DomainValidationError('Missing item', [{ path: 'id', message: 'item was not found' }]);
+    }
+
+    const nextItem = items[nextIndex];
+    const previousItem = items[previousIndex];
+
+    if (!nextItem.isMagic || !nextItem.magicDetails?.requiresAttunement) {
+      throw new DomainValidationError('Invalid attunement target', [
+        {
+          path: 'magicDetails.requiresAttunement',
+          message: 'Item must be a magic item that requires attunement'
+        }
+      ]);
+    }
+
+    if (!previousItem.magicDetails?.attuned) {
+      throw new DomainValidationError('Invalid attunement replacement', [
+        {
+          path: 'magicDetails.attuned',
+          message: 'Replacement item must currently be attuned'
+        }
+      ]);
+    }
+
+    const updatedNext = normalizeItem({
+      ...nextItem,
+      magicDetails: {
+        ...nextItem.magicDetails,
+        attuned: true
+      }
+    });
+
+    const updatedPrevious = normalizeItem({
+      ...previousItem,
+      magicDetails: {
+        ...previousItem.magicDetails,
+        attuned: false
+      }
+    });
+
+    const nextItems = [...items];
+    nextItems[nextIndex] = updatedNext;
+    nextItems[previousIndex] = updatedPrevious;
+    ensureAttunementLimit(nextItems);
+    await this.writeAll(nextItems);
+
+    return updatedNext;
+  }
+
+  async spendConsumable(id: string): Promise<Item | undefined> {
+    const itemId = id.trim();
+    if (!itemId) {
+      throw new DomainValidationError('Invalid id', [{ path: 'id', message: 'id is required' }]);
+    }
+
+    const items = await this.readAll();
+    const index = items.findIndex((item) => item.id === itemId);
+    if (index === -1) {
+      throw new DomainValidationError('Missing item', [{ path: 'id', message: 'item was not found' }]);
+    }
+
+    const current = items[index];
+    if (!current.isConsumable) {
+      throw new DomainValidationError('Invalid consumable action', [
+        { path: 'isConsumable', message: 'Only consumable items can be spent' }
+      ]);
+    }
+
+    const quantity = current.quantity ?? 1;
+    if (quantity <= 1) {
+      const filtered = items.filter((item) => item.id !== itemId);
+      await this.writeAll(filtered);
+      return undefined;
+    }
+
+    const updated = normalizeItem({
+      ...current,
+      quantity: quantity - 1
+    });
+
+    const nextItems = [...items];
+    nextItems[index] = updated;
+    await this.writeAll(nextItems);
+
+    return updated;
+  }
+
   private async readAll(): Promise<Item[]> {
     const rawItems = await this.storageService.read<unknown>(ITEMS_KEY);
     return normalizeItems(rawItems);
