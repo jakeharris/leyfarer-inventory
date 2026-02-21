@@ -227,6 +227,34 @@ const normalizeMagicDetails = (value: unknown): MagicItemDetails | undefined => 
   };
 };
 
+export const isMagicItemComplete = (magicDetails: MagicItemDetails | undefined): boolean => {
+  if (!magicDetails) {
+    return false;
+  }
+
+  if (magicDetails.rarity) {
+    return true;
+  }
+
+  if (magicDetails.requiresAttunement || magicDetails.attuned) {
+    return true;
+  }
+
+  if (magicDetails.charges || magicDetails.usesPerDay) {
+    return true;
+  }
+
+  if (magicDetails.saveDc !== undefined && magicDetails.saveAbility) {
+    return true;
+  }
+
+  if (magicDetails.spells && magicDetails.spells.length > 0) {
+    return true;
+  }
+
+  return false;
+};
+
 export const parseMainSessionRef = (value: string): { chapter: number; session: number; normalized: string } => {
   const normalized = value.trim();
   const match = normalized.match(MAIN_SESSION_PATTERN);
@@ -317,7 +345,7 @@ const normalizeItemInternal = (value: unknown, providedId?: string): Item => {
     ]);
   }
 
-  const isComplete = isMagic ? optionalBoolean(input.isComplete) ?? Boolean(magicDetails) : true;
+  const isComplete = isMagic ? isMagicItemComplete(magicDetails) : true;
 
   return {
     id,

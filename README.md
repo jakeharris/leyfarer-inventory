@@ -28,32 +28,38 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
 ## Core User Flows
 
 1. Add Item (Quick)
+
 - Enter `name` (required), `source` (quest or session), optional `description`.
 - Toggle `Magic Item`.
 - If not magic: save immediately.
 - If magic: prompt for magic fields, but allow skip-and-save as incomplete.
 
-2. Add Item From Side Quest
+1. Add Item From Side Quest
+
 - Pick known quest from catalog.
 - Select reward(s) received.
 - Save item entries in the unified item model.
 
-3. Session Use
+1. Session Use
+
 - Fast views for:
   - Attuned items
   - Consumables
   - Source filter (quest/session)
   - Keyword search
 
-4. Consumable Spend
+1. Consumable Spend
+
 - Tap spend action decrements quantity by 1.
 - Hitting 0 removes item from active inventory.
 
-5. Attunement Management
+1. Attunement Management
+
 - Attune item if slots available.
 - If all 3 slots used, require choosing one currently attuned item to unattune or cancel.
 
-6. Export/Backup
+1. Export/Backup
+
 - Export JSON backup.
 - Import JSON backup.
 - Export/import by QR for manual device sync.
@@ -62,6 +68,7 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
 ## Data Model (Initial)
 
 ### Item
+
 - `id: string`
 - `name: string` (required)
 - `isMagic: boolean`
@@ -76,6 +83,7 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
 - `isConsumable?: boolean`
 
 ### MagicItemDetails (optional when `isMagic = true`)
+
 - `rarity?: "Common" | "Uncommon" | "Rare" | "Very Rare" | "Legendary" | "Artifact" | "Varies"`
 - `requiresAttunement?: boolean`
 - `attuned?: boolean`
@@ -86,6 +94,7 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
 - `spells?: Array<{ name: string; level?: number; notes?: string }>`
 
 ### SideQuestCatalogEntry
+
 - `id: string`
 - `name: string`
 - `thumbnailUrl?: string`
@@ -152,3 +161,7 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
 - Repository layer for inventory items and side quest catalog CRUD/query operations.
 - Storage migration runner with forward migration from schema v1 to v2.
 - Health check route for storage initialization and app version visibility.
+- Phase 03 item entry UX:
+  - quick add + edit form for freeform items
+  - optional magic details with deferred completeness
+  - `Needs Details` badge and filter for incomplete magic items

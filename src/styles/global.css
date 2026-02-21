@@ -65,6 +65,176 @@ body {
   box-shadow: 0 8px 24px rgba(20, 36, 78, 0.08);
 }
 
+.inventory-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.inventory-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.inventory-header h2 {
+  margin: 0;
+}
+
+.inventory-header p {
+  margin: 0.2rem 0 0;
+  font-weight: 600;
+  color: #2d426f;
+}
+
+.item-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.item-form h3,
+.inventory-controls h3 {
+  margin: 0;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: #2f426c;
+}
+
+.field-grid {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 600;
+}
+
+.checkbox-field input {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid #c4d0ee;
+  border-radius: 12px;
+  padding: 0.7rem 0.75rem;
+  font: inherit;
+  color: #111b31;
+  background: #fff;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: 2px solid #31416f;
+  outline-offset: 1px;
+}
+
+.magic-fields {
+  border: 1px solid #cfd9f3;
+  border-radius: 12px;
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.magic-fields legend {
+  padding: 0 0.4rem;
+  font-weight: 700;
+  color: #2d426f;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.inventory-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.item-card {
+  background: #f8faff;
+  border: 1px solid #d5dff7;
+  border-radius: 14px;
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.composer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.composer-header h3 {
+  margin: 0;
+}
+
+.empty-state {
+  margin: 0;
+  padding: 0.9rem;
+  border: 1px dashed #c4d0ee;
+  border-radius: 12px;
+  color: #3a4e7d;
+  background: #f8faff;
+}
+
+.item-card p {
+  margin: 0;
+  color: #344675;
+}
+
+.item-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.badge-warning {
+  background: #f9e6b5;
+  color: #563800;
+}
+
+.error-text {
+  margin: 0;
+  color: #7f1024;
+  font-weight: 600;
+}
+
 .install-banner {
   margin-bottom: 0.75rem;
   background: #1e2b4a;
@@ -160,5 +330,9 @@ button {
 
   .content {
     padding-bottom: 6rem;
+  }
+
+  .field-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }

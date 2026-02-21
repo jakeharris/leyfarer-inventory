@@ -2,6 +2,7 @@ import { createItem, createSideQuestEntry } from '../test/factories';
 import {
   DomainValidationError,
   ensureAttunementLimit,
+  isMagicItemComplete,
   normalizeItem,
   normalizeSideQuestCatalogEntry,
   parseMainSessionRef
@@ -51,6 +52,17 @@ describe('normalizeItem', () => {
     });
 
     expect(item.isComplete).toBe(false);
+  });
+
+  it('computes magic completeness from meaningful detail fields', () => {
+    expect(isMagicItemComplete(undefined)).toBe(false);
+    expect(isMagicItemComplete({})).toBe(false);
+    expect(isMagicItemComplete({ rarity: 'Rare' })).toBe(true);
+    expect(isMagicItemComplete({ requiresAttunement: false })).toBe(false);
+    expect(isMagicItemComplete({ requiresAttunement: true })).toBe(true);
+    expect(isMagicItemComplete({ spells: [{ name: 'Shield' }] })).toBe(true);
+    expect(isMagicItemComplete({ saveDc: 14 })).toBe(false);
+    expect(isMagicItemComplete({ saveDc: 14, saveAbility: 'WIS' })).toBe(true);
   });
 
   it('rejects non-magic items with magic details', () => {
