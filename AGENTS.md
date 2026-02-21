@@ -73,3 +73,9 @@ Build and maintain a local-first inventory web app for Mocha (catfolk sorcerer) 
 - Keep README and product behavior aligned.
 - If a change alters any locked constraint above, call it out explicitly before implementation.
 - Add or update tests when behavior changes in data model, attunement rules, import/export, or consumable handling.
+- Before asserting work is complete, always run:
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run test`
+  - `npm run test:e2e:smoke`
+- If any of the required checks fail, the agent must continue iterating until all required checks pass.

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="Leyfarer Inventory icon">
+  <rect width="180" height="180" rx="34" fill="#1e2b4a" />
+  <path d="M34 50h112v86H34z" fill="#f2e8c8" />
+  <path d="M50 72h80M50 94h80M50 116h50" stroke="#2b355a" stroke-width="10" stroke-linecap="round" />
+</svg>

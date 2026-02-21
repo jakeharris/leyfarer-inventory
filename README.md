@@ -133,3 +133,19 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
 - Clear indicators for incomplete magic items.
 - Attunement state always consistent with slot rules.
 - Export/import paths tested with realistic inventory data.
+
+## Local Development
+
+- `npm install`
+- `npm run dev`
+- `npm run lint`
+- `npm run typecheck`
+- `npm run test`
+- `npm run test:e2e:smoke`
+
+## Current Foundation Status
+
+- React + TypeScript + Vite app shell with mobile-first layout and bottom navigation.
+- PWA manifest/service worker via `vite-plugin-pwa`.
+- Local persistence foundation with typed IndexedDB storage service and schema version marker.
+- Health check route for storage initialization and app version visibility.

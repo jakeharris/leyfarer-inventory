@@ -1,0 +1,164 @@
+:root {
+  font-family: 'Avenir Next', 'Segoe UI', sans-serif;
+  line-height: 1.4;
+  font-weight: 400;
+  color: #111b31;
+  background: radial-gradient(circle at top, #fefcf4, #edf2ff 55%, #dee6fb);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+.page-shell {
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.top-bar {
+  padding: 1rem 1rem 0.5rem;
+}
+
+.top-bar h1 {
+  margin: 0;
+}
+
+.title-button {
+  all: unset;
+  font-size: 1.4rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.title-button:focus-visible {
+  outline: 2px solid #31416f;
+  border-radius: 6px;
+}
+
+.top-bar p {
+  margin: 0.25rem 0 0;
+  color: #3a4e7d;
+  font-size: 0.9rem;
+}
+
+.content {
+  padding: 0.75rem 1rem 5.5rem;
+}
+
+.panel {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #cfd9f3;
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 8px 24px rgba(20, 36, 78, 0.08);
+}
+
+.install-banner {
+  margin-bottom: 0.75rem;
+  background: #1e2b4a;
+  color: #f7f7f2;
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+
+.install-banner p {
+  margin: 0;
+}
+
+.install-banner__actions {
+  margin-top: 0.65rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.5rem 0.75rem;
+  background: #f2e8c8;
+  color: #1d2950;
+  font-weight: 600;
+}
+
+.button-secondary {
+  background: #31416f;
+  color: #edf2ff;
+}
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem calc(0.65rem + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.98);
+  border-top: 1px solid #cfd9f3;
+  backdrop-filter: blur(8px);
+}
+
+.bottom-nav__link {
+  text-decoration: none;
+  text-align: center;
+  color: #2f4370;
+  padding: 0.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.bottom-nav__link--active {
+  background: #1e2b4a;
+  color: #f7f7f2;
+}
+
+.kv-list {
+  margin: 0;
+}
+
+.kv-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid #e3e9fa;
+  padding: 0.5rem 0;
+}
+
+.kv-list div:last-child {
+  border-bottom: 0;
+}
+
+.kv-list dt {
+  color: #344675;
+  font-weight: 600;
+}
+
+.kv-list dd {
+  margin: 0;
+  text-align: right;
+}
+
+@media (min-width: 800px) {
+  .page-shell {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .content {
+    padding-bottom: 6rem;
+  }
+}
