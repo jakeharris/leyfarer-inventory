@@ -1,4 +1,5 @@
 import { STORAGE } from '../config/constants';
+import { runStorageMigrations } from './migrations';
 import type { StorageService, StorageValue } from './types';
 
 const toPromise = <T>(request: IDBRequest<T>) =>
@@ -19,11 +20,7 @@ export class IndexedDbStorageService implements StorageService {
 
   async init(): Promise<void> {
     const db = await this.getDb();
-    const version = await this.readFromStore<number>(db, STORAGE.stores.meta, STORAGE.keys.schemaVersion);
-
-    if (version !== STORAGE.schemaVersion) {
-      await this.writeToStore(db, STORAGE.stores.meta, STORAGE.keys.schemaVersion, STORAGE.schemaVersion);
-    }
+    await runStorageMigrations(db);
   }
 
   async read<T extends StorageValue>(key: string): Promise<T | undefined> {

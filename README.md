@@ -148,4 +148,7 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
 - React + TypeScript + Vite app shell with mobile-first layout and bottom navigation.
 - PWA manifest/service worker via `vite-plugin-pwa`.
 - Local persistence foundation with typed IndexedDB storage service and schema version marker.
+- Canonical domain model + runtime validators for items, side quest catalog entries, source/session rules, and attunement limits.
+- Repository layer for inventory items and side quest catalog CRUD/query operations.
+- Storage migration runner with forward migration from schema v1 to v2.
 - Health check route for storage initialization and app version visibility.

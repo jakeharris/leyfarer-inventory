@@ -7,7 +7,7 @@ import prettierConfig from 'eslint-config-prettier';
 
 export default [
   {
-    ignores: ['dist', 'coverage', 'playwright-report']
+    ignores: ['dist', 'coverage', 'playwright-report', 'dev-dist', 'test-results']
   },
   js.configs.recommended,
   {

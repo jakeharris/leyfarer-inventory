@@ -1,0 +1,86 @@
+import { createItem, createSideQuestEntry } from '../test/factories';
+import {
+  DomainValidationError,
+  ensureAttunementLimit,
+  normalizeItem,
+  normalizeSideQuestCatalogEntry,
+  parseMainSessionRef
+} from './validators';
+
+describe('parseMainSessionRef', () => {
+  it('normalizes valid source refs', () => {
+    expect(parseMainSessionRef(' 09.3 ')).toEqual({
+      chapter: 9,
+      session: 3,
+      normalized: '9.3'
+    });
+  });
+
+  it('rejects invalid chapter/session ranges', () => {
+    expect(() => parseMainSessionRef('17.1')).toThrow(DomainValidationError);
+    expect(() => parseMainSessionRef('10.7')).toThrow(DomainValidationError);
+  });
+
+  it('rejects invalid format', () => {
+    expect(() => parseMainSessionRef('chapter 10 session 2')).toThrow(DomainValidationError);
+  });
+});
+
+describe('normalizeItem', () => {
+  it('normalizes source refs and defaults non-magic items to complete', () => {
+    const item = normalizeItem({
+      ...createItem(),
+      isMagic: false,
+      magicDetails: undefined,
+      isComplete: true,
+      sourceType: 'mainSession',
+      sourceRef: '10.03'
+    });
+
+    expect(item.sourceRef).toBe('10.3');
+    expect(item.isComplete).toBe(true);
+  });
+
+  it('marks magic item incomplete when details are missing', () => {
+    const item = normalizeItem({
+      id: 'a',
+      name: 'Unknown Wand',
+      isMagic: true,
+      sourceType: 'other',
+      tags: []
+    });
+
+    expect(item.isComplete).toBe(false);
+  });
+
+  it('rejects non-magic items with magic details', () => {
+    expect(() =>
+      normalizeItem({
+        ...createItem(),
+        isMagic: false
+      })
+    ).toThrow(DomainValidationError);
+  });
+});
+
+describe('normalizeSideQuestCatalogEntry', () => {
+  it('normalizes valid entries', () => {
+    const entry = normalizeSideQuestCatalogEntry(createSideQuestEntry({ name: '  Hollow Barrel  ' }));
+
+    expect(entry.name).toBe('Hollow Barrel');
+    expect(entry.status).toBe('manual');
+  });
+});
+
+describe('ensureAttunementLimit', () => {
+  it('rejects collections with more than 3 attuned items', () => {
+    expect(() =>
+      ensureAttunementLimit([
+        createItem({ id: '1', magicDetails: { requiresAttunement: true, attuned: true } }),
+        createItem({ id: '2', magicDetails: { requiresAttunement: true, attuned: true } }),
+        createItem({ id: '3', magicDetails: { requiresAttunement: true, attuned: true } }),
+        createItem({ id: '4', magicDetails: { requiresAttunement: true, attuned: true } })
+      ])
+    ).toThrow(DomainValidationError);
+  });
+});

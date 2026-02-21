@@ -13,7 +13,9 @@ export const STORAGE = {
     meta: 'meta'
   },
   keys: {
-    schemaVersion: 'schemaVersion'
+    schemaVersion: 'schemaVersion',
+    items: 'items',
+    sideQuestCatalog: 'sideQuestCatalog'
   },
-  schemaVersion: 1
+  schemaVersion: 2
 } as const;
