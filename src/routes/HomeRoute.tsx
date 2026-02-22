@@ -12,6 +12,7 @@ import type {
 } from '../domain/types';
 import { magicRarities } from '../domain/types';
 import { isMagicItemComplete } from '../domain/validators';
+import { BottomSheet } from '../components/BottomSheet';
 import { createItemRepository, createSideQuestCatalogRepository } from '../repositories';
 import { createSideQuestCatalogSyncService } from '../services/sideQuestCatalogSyncService';
 import { createTransferService, type ImportStrategy } from '../services/transferService';
@@ -657,7 +658,12 @@ export const HomeRoute = () => {
     setEditingId(item.id);
     setForm(toFormState(item));
     setShowExtraFields(true);
+    setShowFilters(false);
     setShowComposer(true);
+    setShowRewardComposer(false);
+    setShowCatalogManager(false);
+    setShowCatalogEditor(false);
+    setShowTransferPanel(false);
     setError(null);
   };
 
@@ -666,7 +672,11 @@ export const HomeRoute = () => {
     setForm(defaultFormState());
     setShowExtraFields(false);
     setShowComposer(true);
+    setShowFilters(false);
     setShowRewardComposer(false);
+    setShowCatalogManager(false);
+    setShowCatalogEditor(false);
+    setShowTransferPanel(false);
     setError(null);
   };
 
@@ -830,6 +840,20 @@ export const HomeRoute = () => {
     setShowCatalogEditor(false);
   };
 
+  const openCatalogManager = () => {
+    setShowCatalogManager(true);
+    setShowFilters(false);
+    setShowRewardComposer(false);
+    setShowComposer(false);
+    setShowTransferPanel(false);
+    setError(null);
+  };
+
+  const closeCatalogManager = () => {
+    setShowCatalogManager(false);
+    closeCatalogEditor();
+  };
+
   const closeRewardComposer = () => {
     setRewardForm(defaultRewardFormState());
     setShowRewardComposer(false);
@@ -895,9 +919,10 @@ export const HomeRoute = () => {
 
   const openTransferPanel = () => {
     setShowTransferPanel(true);
+    setShowFilters(false);
     setShowComposer(false);
     setShowRewardComposer(false);
-    setShowCatalogManager(false);
+    closeCatalogManager();
     setCameraScanUnsupported(false);
     setTransferForm(defaultTransferFormState());
     resetTransferExportState();
@@ -996,6 +1021,12 @@ export const HomeRoute = () => {
     setCameraScanPending(false);
     setCameraScanStatus('Camera scanner stopped.');
   }, []);
+
+  useEffect(() => {
+    if (!showTransferPanel && cameraScanActive) {
+      stopCameraScan();
+    }
+  }, [cameraScanActive, showTransferPanel, stopCameraScan]);
 
   const appendScannedQrChunk = useCallback((chunk: string) => {
     setTransferForm((prev) => {
@@ -1286,8 +1317,11 @@ export const HomeRoute = () => {
           <button
             type="button"
             onClick={() => {
+              setShowFilters(false);
               setShowComposer(false);
               setShowRewardComposer(true);
+              closeCatalogManager();
+              setShowTransferPanel(false);
             }}
           >
             Add Rewards
@@ -1310,7 +1344,18 @@ export const HomeRoute = () => {
           <button
             type="button"
             className="search-filter-row__button"
-            onClick={() => setShowFilters((prev) => !prev)}
+            onClick={() => {
+              setShowFilters((prev) => {
+                const next = !prev;
+                if (next) {
+                  setShowComposer(false);
+                  setShowRewardComposer(false);
+                  closeCatalogManager();
+                  setShowTransferPanel(false);
+                }
+                return next;
+              });
+            }}
           >
             Filters
           </button>
@@ -1325,284 +1370,257 @@ export const HomeRoute = () => {
         </div>
       </div>
 
-      {showFilters ? (
-        <section className="filters-modal" role="dialog" aria-modal="true" aria-label="Filters">
-          <div className="composer-header">
-            <h3>Filters</h3>
-            <div className="form-actions">
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={() => setShowCatalogManager((prev) => !prev)}
-              >
-                {showCatalogManager ? 'Hide Catalog' : 'Catalog'}
-              </button>
-              <button type="button" onClick={() => setShowFilters(false)}>
-                Done
-              </button>
-            </div>
-          </div>
+      <BottomSheet open={showFilters} title="Filters" onClose={() => setShowFilters(false)}>
+        <div className="form-actions">
+          <button type="button" className="button-secondary" onClick={openCatalogManager}>
+            Catalog
+          </button>
+          <button type="button" onClick={() => setShowFilters(false)}>
+            Done
+          </button>
+        </div>
 
-          <div className="field-grid">
-            <label className="field">
-              Quest type
-              <select
-                value={filters.sourceType}
-                onChange={(event) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    sourceType: event.target.value as SourceType | 'all',
-                    sourceRef: ALL_SOURCES_VALUE
-                  }))
-                }
-              >
-                <option value="all">All</option>
-                <option value="mainSession">Main Session</option>
-                <option value="sideQuest">Side Quest</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
-
-            <label className="field">
-              Quest
-              <select
-                value={filters.sourceRef}
-                onChange={(event) => setFilters((prev) => ({ ...prev, sourceRef: event.target.value }))}
-              >
-                <option value={ALL_SOURCES_VALUE}>All</option>
-                {sourceRefOptions.map((sourceRef) => (
-                  <option key={sourceRef} value={sourceRef}>
-                    {sourceRef}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <label className="checkbox-field">
-            <input
-              type="checkbox"
-              checked={filters.attunedOnly}
-              onChange={(event) => setFilters((prev) => ({ ...prev, attunedOnly: event.target.checked }))}
-            />
-            Attuned Only
+        <div className="field-grid">
+          <label className="field">
+            Quest type
+            <select
+              value={filters.sourceType}
+              onChange={(event) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  sourceType: event.target.value as SourceType | 'all',
+                  sourceRef: ALL_SOURCES_VALUE
+                }))
+              }
+            >
+              <option value="all">All</option>
+              <option value="mainSession">Main Session</option>
+              <option value="sideQuest">Side Quest</option>
+              <option value="other">Other</option>
+            </select>
           </label>
 
-          <label className="checkbox-field">
-            <input
-              type="checkbox"
-              checked={filters.consumableOnly}
-              onChange={(event) => setFilters((prev) => ({ ...prev, consumableOnly: event.target.checked }))}
-            />
-            Consumables Only
+          <label className="field">
+            Quest
+            <select
+              value={filters.sourceRef}
+              onChange={(event) => setFilters((prev) => ({ ...prev, sourceRef: event.target.value }))}
+            >
+              <option value={ALL_SOURCES_VALUE}>All</option>
+              {sourceRefOptions.map((sourceRef) => (
+                <option key={sourceRef} value={sourceRef}>
+                  {sourceRef}
+                </option>
+              ))}
+            </select>
           </label>
-        </section>
-      ) : null}
+        </div>
 
-      {showCatalogManager ? (
-        <section className="catalog-panel" aria-label="Side quest catalog">
-          <div className="composer-header">
-            <h3>Side Quest Catalog</h3>
-            <div className="form-actions">
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={() => void onRefreshCatalog()}
-                disabled={catalogRefreshPending}
-              >
-                {catalogRefreshPending ? 'Refreshing...' : 'Refresh Catalog'}
-              </button>
-              <button type="button" className="button-secondary" onClick={startCatalogEntry}>
-                Manual Entry
-              </button>
-              <button type="button" onClick={() => setShowCatalogManager(false)}>
+        <label className="checkbox-field">
+          <input
+            type="checkbox"
+            checked={filters.attunedOnly}
+            onChange={(event) => setFilters((prev) => ({ ...prev, attunedOnly: event.target.checked }))}
+          />
+          Attuned Only
+        </label>
+
+        <label className="checkbox-field">
+          <input
+            type="checkbox"
+            checked={filters.consumableOnly}
+            onChange={(event) => setFilters((prev) => ({ ...prev, consumableOnly: event.target.checked }))}
+          />
+          Consumables Only
+        </label>
+      </BottomSheet>
+
+      <BottomSheet open={showCatalogManager} title="Side Quest Catalog" onClose={closeCatalogManager}>
+        <div className="form-actions">
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => void onRefreshCatalog()}
+            disabled={catalogRefreshPending}
+          >
+            {catalogRefreshPending ? 'Refreshing...' : 'Refresh Catalog'}
+          </button>
+          <button type="button" className="button-secondary" onClick={startCatalogEntry}>
+            Manual Entry
+          </button>
+        </div>
+
+        <p className="catalog-sync-text">
+          Status: <strong>{syncState.status}</strong> | Last Refresh: {formatTimestamp(syncState.lastRefreshAt)}
+          {syncState.errorCount > 0 ? ` | Source Errors: ${syncState.errorCount}` : ''}
+        </p>
+        {syncState.message ? <p className="catalog-sync-text">{syncState.message}</p> : null}
+
+        <label className="field">
+          Search Catalog
+          <input
+            type="search"
+            value={catalogSearch}
+            onChange={(event) => setCatalogSearch(event.target.value)}
+            placeholder="Search side quests..."
+          />
+        </label>
+
+        {hasCatalogSearch && filteredCatalogEntries.length > 0 ? (
+          <ul className="item-list" aria-label="Catalog entries">
+            {filteredCatalogEntries.map((entry) => (
+              <li key={entry.id} className="item-card">
+                <div className="item-card__header">
+                  <strong>{entry.name}</strong>
+                  <span className={`badge badge-catalog-${entry.status}`}>{entry.status}</span>
+                </div>
+                <p>{entry.description ?? 'No description available.'}</p>
+                <div className="item-actions">
+                  <button type="button" onClick={() => onEditCatalogEntry(entry)}>
+                    Edit
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : hasCatalogSearch ? (
+          <p className="empty-state">No side quest catalog entries yet.</p>
+        ) : (
+          <p className="empty-state">Search to view side quest catalog entries.</p>
+        )}
+
+        {showCatalogEditor ? (
+          <form className="item-form catalog-editor" onSubmit={onSaveCatalogEntry}>
+            <div className="composer-header">
+              <h3>{catalogForm.id ? 'Edit Catalog Entry' : 'Manual Side Quest Entry'}</h3>
+              <button type="button" onClick={closeCatalogEditor}>
                 Close
               </button>
             </div>
-          </div>
-
-          <p className="catalog-sync-text">
-            Status: <strong>{syncState.status}</strong> | Last Refresh: {formatTimestamp(syncState.lastRefreshAt)}
-            {syncState.errorCount > 0 ? ` | Source Errors: ${syncState.errorCount}` : ''}
-          </p>
-          {syncState.message ? <p className="catalog-sync-text">{syncState.message}</p> : null}
-
-          <label className="field">
-            Search Catalog
-            <input
-              type="search"
-              value={catalogSearch}
-              onChange={(event) => setCatalogSearch(event.target.value)}
-              placeholder="Search side quests..."
-            />
-          </label>
-
-          {hasCatalogSearch && filteredCatalogEntries.length > 0 ? (
-            <ul className="item-list" aria-label="Catalog entries">
-              {filteredCatalogEntries.map((entry) => (
-                <li key={entry.id} className="item-card">
-                  <div className="item-card__header">
-                    <strong>{entry.name}</strong>
-                    <span className={`badge badge-catalog-${entry.status}`}>{entry.status}</span>
-                  </div>
-                  <p>{entry.description ?? 'No description available.'}</p>
-                  <div className="item-actions">
-                    <button type="button" onClick={() => onEditCatalogEntry(entry)}>
-                      Edit
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : hasCatalogSearch ? (
-            <p className="empty-state">No side quest catalog entries yet.</p>
-          ) : (
-            <p className="empty-state">Search to view side quest catalog entries.</p>
-          )}
-
-          {showCatalogEditor ? (
-            <form className="item-form catalog-editor" onSubmit={onSaveCatalogEntry}>
-              <div className="composer-header">
-                <h3>{catalogForm.id ? 'Edit Catalog Entry' : 'Manual Side Quest Entry'}</h3>
-                <button type="button" onClick={closeCatalogEditor}>
-                  Close
-                </button>
-              </div>
-              <label className="field">
-                Name
-                <input
-                  required
-                  value={catalogForm.name}
-                  onChange={(event) => setCatalogForm((prev) => ({ ...prev, name: event.target.value }))}
-                />
-              </label>
-              <label className="field">
-                Description
-                <textarea
-                  rows={3}
-                  value={catalogForm.description}
-                  onChange={(event) =>
-                    setCatalogForm((prev) => ({ ...prev, description: event.target.value }))
-                  }
-                />
-              </label>
-              <label className="field">
-                Source URL
-                <input
-                  value={catalogForm.sourceUrl}
-                  onChange={(event) =>
-                    setCatalogForm((prev) => ({ ...prev, sourceUrl: event.target.value }))
-                  }
-                />
-              </label>
-              <label className="field">
-                Thumbnail URL
-                <input
-                  value={catalogForm.thumbnailUrl}
-                  onChange={(event) =>
-                    setCatalogForm((prev) => ({ ...prev, thumbnailUrl: event.target.value }))
-                  }
-                />
-              </label>
-              <div className="form-actions">
-                <button type="submit">Save Manual Entry</button>
-              </div>
-            </form>
-          ) : null}
-        </section>
-      ) : null}
-
-      {showTransferPanel ? (
-        <section className="transfer-panel" role="dialog" aria-modal="true" aria-label="Data transfer">
-          <div className="composer-header">
-            <h3>Backup and Transfer</h3>
-            <button type="button" onClick={closeTransferPanel}>
-              Close
-            </button>
-          </div>
-
-          <p className="catalog-sync-text">
-            One-way sync only: export from one device, then import on another. Choose
-            <strong> replace</strong> to overwrite local inventory or <strong>merge</strong> to keep existing
-            inventory IDs and apply incoming updates.
-          </p>
-
-          <div className="field-grid">
-            <button
-              type="button"
-              className="button-secondary"
-              disabled={transferPending}
-              onClick={() => void onExportJson()}
-            >
-              Export JSON
-            </button>
-            <button
-              type="button"
-              className="button-secondary"
-              disabled={transferPending}
-              onClick={() => void onDownloadJson()}
-            >
-              Download JSON
-            </button>
-          </div>
-
-          <button type="button" disabled={transferPending} onClick={() => void onGenerateQrChunks()}>
-            Show QR
-          </button>
-
-          {transferNotice ? <p className="catalog-sync-text">{transferNotice}</p> : null}
-
-          {transferExportJson ? (
             <label className="field">
-              Export JSON Payload
-              <textarea readOnly rows={7} value={transferExportJson} />
+              Name
+              <input
+                required
+                value={catalogForm.name}
+                onChange={(event) => setCatalogForm((prev) => ({ ...prev, name: event.target.value }))}
+              />
             </label>
-          ) : null}
-
-          {transferQrChunks.length > 0 ? (
-            <div className="transfer-qr-view">
-              <p className="catalog-sync-text">
-                QR chunk {transferQrIndex + 1} of {transferQrChunks.length}
-              </p>
-              {transferQrImageUrl ? (
-                <div className="transfer-qr-image-wrap">
-                  <img
-                    src={transferQrImageUrl}
-                    alt={`QR chunk ${transferQrIndex + 1} of ${transferQrChunks.length}`}
-                    className="transfer-qr-image"
-                  />
-                </div>
-              ) : null}
-              <label className="field">
-                Current QR Chunk
-                <textarea readOnly rows={3} value={transferQrChunks[transferQrIndex]} />
-              </label>
-              <div className="form-actions">
-                <button
-                  type="button"
-                  className="button-secondary"
-                  disabled={transferQrIndex === 0}
-                  onClick={() => setTransferQrIndex((prev) => Math.max(0, prev - 1))}
-                >
-                  Previous Chunk
-                </button>
-                <button
-                  type="button"
-                  className="button-secondary"
-                  disabled={transferQrIndex >= transferQrChunks.length - 1}
-                  onClick={() =>
-                    setTransferQrIndex((prev) => Math.min(transferQrChunks.length - 1, prev + 1))
-                  }
-                >
-                  Next Chunk
-                </button>
-              </div>
-              <label className="field">
-                All QR Chunks (one per line)
-                <textarea readOnly rows={5} value={transferQrChunks.join('\n')} />
-              </label>
+            <label className="field">
+              Description
+              <textarea
+                rows={3}
+                value={catalogForm.description}
+                onChange={(event) =>
+                  setCatalogForm((prev) => ({ ...prev, description: event.target.value }))
+                }
+              />
+            </label>
+            <label className="field">
+              Source URL
+              <input
+                value={catalogForm.sourceUrl}
+                onChange={(event) =>
+                  setCatalogForm((prev) => ({ ...prev, sourceUrl: event.target.value }))
+                }
+              />
+            </label>
+            <label className="field">
+              Thumbnail URL
+              <input
+                value={catalogForm.thumbnailUrl}
+                onChange={(event) =>
+                  setCatalogForm((prev) => ({ ...prev, thumbnailUrl: event.target.value }))
+                }
+              />
+            </label>
+            <div className="form-actions">
+              <button type="submit">Save Manual Entry</button>
             </div>
-          ) : null}
+          </form>
+        ) : null}
+      </BottomSheet>
+
+      <BottomSheet open={showTransferPanel} title="Backup and Transfer" onClose={closeTransferPanel}>
+        <p className="catalog-sync-text">
+          One-way sync only: export from one device, then import on another. Choose
+          <strong> replace</strong> to overwrite local inventory or <strong>merge</strong> to keep existing
+          inventory IDs and apply incoming updates.
+        </p>
+
+        <div className="field-grid">
+          <button
+            type="button"
+            className="button-secondary"
+            disabled={transferPending}
+            onClick={() => void onExportJson()}
+          >
+            Export JSON
+          </button>
+          <button
+            type="button"
+            className="button-secondary"
+            disabled={transferPending}
+            onClick={() => void onDownloadJson()}
+          >
+            Download JSON
+          </button>
+        </div>
+
+        <button type="button" disabled={transferPending} onClick={() => void onGenerateQrChunks()}>
+          Show QR
+        </button>
+
+        {transferNotice ? <p className="catalog-sync-text">{transferNotice}</p> : null}
+
+        {transferExportJson ? (
+          <label className="field">
+            Export JSON Payload
+            <textarea readOnly rows={7} value={transferExportJson} />
+          </label>
+        ) : null}
+
+        {transferQrChunks.length > 0 ? (
+          <div className="transfer-qr-view">
+            <p className="catalog-sync-text">
+              QR chunk {transferQrIndex + 1} of {transferQrChunks.length}
+            </p>
+            {transferQrImageUrl ? (
+              <div className="transfer-qr-image-wrap">
+                <img
+                  src={transferQrImageUrl}
+                  alt={`QR chunk ${transferQrIndex + 1} of ${transferQrChunks.length}`}
+                  className="transfer-qr-image"
+                />
+              </div>
+            ) : null}
+            <label className="field">
+              Current QR Chunk
+              <textarea readOnly rows={3} value={transferQrChunks[transferQrIndex]} />
+            </label>
+            <div className="form-actions">
+              <button
+                type="button"
+                className="button-secondary"
+                disabled={transferQrIndex === 0}
+                onClick={() => setTransferQrIndex((prev) => Math.max(0, prev - 1))}
+              >
+                Previous Chunk
+              </button>
+              <button
+                type="button"
+                className="button-secondary"
+                disabled={transferQrIndex >= transferQrChunks.length - 1}
+                onClick={() => setTransferQrIndex((prev) => Math.min(transferQrChunks.length - 1, prev + 1))}
+              >
+                Next Chunk
+              </button>
+            </div>
+            <label className="field">
+              All QR Chunks (one per line)
+              <textarea readOnly rows={5} value={transferQrChunks.join('\n')} />
+            </label>
+          </div>
+        ) : null}
 
           <label className="field">
             Import strategy
@@ -1691,28 +1709,17 @@ export const HomeRoute = () => {
             <video ref={videoRef} muted playsInline />
           </div>
 
-          <button type="button" disabled={transferPending} onClick={() => void onImportQr()}>
-            Scan QR
-          </button>
-        </section>
-      ) : null}
+        <button type="button" disabled={transferPending} onClick={() => void onImportQr()}>
+          Scan QR
+        </button>
+      </BottomSheet>
 
-      {showRewardComposer ? (
+      <BottomSheet open={showRewardComposer} title="Add Side Quest Rewards" onClose={closeRewardComposer}>
         <form className="item-form reward-form" onSubmit={onSaveRewards}>
-          <div className="composer-header">
-            <h3>Add Side Quest Rewards</h3>
-            <div className="form-actions">
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={() => setShowCatalogManager((prev) => !prev)}
-              >
-                {showCatalogManager ? 'Hide Catalog' : 'Catalog'}
-              </button>
-              <button type="button" onClick={closeRewardComposer}>
-                Close
-              </button>
-            </div>
+          <div className="form-actions">
+            <button type="button" className="button-secondary" onClick={openCatalogManager}>
+              Catalog
+            </button>
           </div>
 
           <label className="field">
@@ -1786,7 +1793,7 @@ export const HomeRoute = () => {
             <button type="submit">Save Rewards</button>
           </div>
         </form>
-      ) : null}
+      </BottomSheet>
 
       {sortedFilteredItems.length > 0 ? (
         hasSearch ? (
@@ -1809,64 +1816,64 @@ export const HomeRoute = () => {
         <p className="empty-state">No items match the current filters.</p>
       )}
 
-      {attunementTarget ? (
-        <section className="attunement-modal" role="dialog" aria-modal="true" aria-label="Attunement full">
-          <h3>Attunement Slots Full</h3>
-          <p>
-            Choose one attuned item to replace with <strong>{attunementTarget.name}</strong>.
-          </p>
+      <BottomSheet open={Boolean(attunementTarget)} title="Attunement Full" onClose={closeAttunementModal}>
+        {attunementTarget ? (
+          <>
+            <p>
+              Choose one attuned item to replace with <strong>{attunementTarget.name}</strong>.
+            </p>
 
-          <div className="attunement-replace-list" role="radiogroup" aria-label="Attuned items">
-            {attunedItems.map((item) => (
-              <label key={item.id} className="checkbox-field">
-                <input
-                  type="radio"
-                  name="attunement-replacement"
-                  checked={replacementId === item.id}
-                  onChange={() => setReplacementId(item.id)}
-                />
-                {item.name}
-              </label>
-            ))}
-          </div>
+            <div className="attunement-replace-list" role="radiogroup" aria-label="Attuned items">
+              {attunedItems.map((item) => (
+                <label key={item.id} className="checkbox-field">
+                  <input
+                    type="radio"
+                    name="attunement-replacement"
+                    checked={replacementId === item.id}
+                    onChange={() => setReplacementId(item.id)}
+                  />
+                  {item.name}
+                </label>
+              ))}
+            </div>
 
-          <div className="form-actions">
-            <button type="button" onClick={() => void onConfirmReplacement()} disabled={!replacementId}>
-              Replace Selected
-            </button>
-            <button type="button" className="button-secondary" onClick={closeAttunementModal}>
-              Cancel
-            </button>
-          </div>
-        </section>
-      ) : null}
+            <div className="form-actions">
+              <button type="button" onClick={() => void onConfirmReplacement()} disabled={!replacementId}>
+                Replace Selected
+              </button>
+              <button type="button" className="button-secondary" onClick={closeAttunementModal}>
+                Cancel
+              </button>
+            </div>
+          </>
+        ) : null}
+      </BottomSheet>
 
-      {removeTarget ? (
-        <section className="attunement-modal" role="dialog" aria-modal="true" aria-label="Remove item">
-          <h3>Remove Item?</h3>
-          <p>
-            Remove <strong>{removeTarget.name}</strong> from inventory?
-          </p>
+      <BottomSheet open={Boolean(removeTarget)} title="Remove Item?" onClose={closeRemoveModal}>
+        {removeTarget ? (
+          <>
+            <p>
+              Remove <strong>{removeTarget.name}</strong> from inventory?
+            </p>
 
-          <div className="form-actions">
-            <button type="button" className="button-danger" onClick={() => void onConfirmRemove()}>
-              Remove Item
-            </button>
-            <button type="button" className="button-secondary" onClick={closeRemoveModal}>
-              Cancel
-            </button>
-          </div>
-        </section>
-      ) : null}
+            <div className="form-actions">
+              <button type="button" className="button-danger" onClick={() => void onConfirmRemove()}>
+                Remove Item
+              </button>
+              <button type="button" className="button-secondary" onClick={closeRemoveModal}>
+                Cancel
+              </button>
+            </div>
+          </>
+        ) : null}
+      </BottomSheet>
 
-      {showComposer ? (
+      <BottomSheet
+        open={showComposer}
+        title={editingId ? 'Edit Item' : 'Quick Add Item'}
+        onClose={closeComposer}
+      >
         <form className="item-form" onSubmit={onSave}>
-          <div className="composer-header">
-            <h3>{editingId ? 'Edit Item' : 'Quick Add Item'}</h3>
-            <button type="button" onClick={closeComposer}>
-              Close
-            </button>
-          </div>
 
           <label className="field">
             Name
@@ -2119,7 +2126,7 @@ export const HomeRoute = () => {
             </p>
           ) : null}
         </form>
-      ) : null}
+      </BottomSheet>
 
       {error && !showComposer ? (
         <p className="error-text" role="alert">

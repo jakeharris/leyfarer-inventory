@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { APP_NAME } from '../config/constants';
-import { BottomNav } from '../components/BottomNav';
 import { InstallBanner } from '../components/InstallBanner';
 
 const DEV_GESTURE_TAPS = 5;
@@ -43,8 +42,6 @@ export const AppLayout = () => {
         <InstallBanner />
         <Outlet />
       </main>
-
-      <BottomNav />
     </div>
   );
 };

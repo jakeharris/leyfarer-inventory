@@ -94,7 +94,6 @@ test('snapshot catalog refresh supports manual catalog and reward entry', async 
 
   await page.getByRole('button', { name: 'Filters' }).click();
   await page.getByRole('button', { name: 'Catalog' }).click();
-  await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('button', { name: 'Refresh Catalog' }).click();
   await expect(page.getByText(/Catalog loaded from local snapshot/)).toBeVisible();
 
@@ -103,6 +102,7 @@ test('snapshot catalog refresh supports manual catalog and reward entry', async 
   await page.getByRole('button', { name: 'Save Manual Entry' }).click();
   await page.getByRole('searchbox', { name: 'Search Catalog' }).fill('beneath');
   await expect(page.getByText('Beneath the Brewery')).toBeVisible();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
 
   await page.getByRole('button', { name: 'Add Rewards' }).first().click();
   await expect(page.getByRole('heading', { name: 'Add Side Quest Rewards' })).toBeVisible();

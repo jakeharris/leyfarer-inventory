@@ -53,8 +53,8 @@ describe('HomeRoute', () => {
       sourceRef?: string;
     }) => {
       await user.click(screen.getByRole('button', { name: /add item/i }));
-      const heading = await screen.findByRole('heading', { name: /quick add item/i });
-      const form = heading.closest('form');
+      await screen.findByRole('heading', { name: /quick add item/i });
+      const form = screen.getByRole('button', { name: /save item/i }).closest('form');
       expect(form).not.toBeNull();
       const formQueries = within(form as HTMLElement);
 
@@ -152,7 +152,6 @@ describe('HomeRoute', () => {
 
     await user.click(await screen.findByRole('button', { name: /^filters$/i }));
     await user.click(screen.getByRole('button', { name: /^catalog$/i }));
-    await user.click(screen.getByRole('button', { name: /^done$/i }));
     await user.click(screen.getByRole('button', { name: /manual entry/i }));
 
     const editor = await screen.findByRole('heading', { name: /manual side quest entry/i });
@@ -204,13 +203,12 @@ describe('HomeRoute', () => {
     render(<HomeRoute />);
 
     await user.click(await screen.findByRole('button', { name: /^add rewards$/i }));
-    const rewardHeading = await screen.findByRole('heading', { name: /add side quest rewards/i });
-    const rewardForm = rewardHeading.closest('form');
+    await screen.findByRole('heading', { name: /add side quest rewards/i });
+    const rewardForm = screen.getByRole('button', { name: /^save rewards$/i }).closest('form');
     expect(rewardForm).not.toBeNull();
     const rewardQueries = within(rewardForm as HTMLElement);
 
     await user.click(rewardQueries.getByRole('button', { name: /^catalog$/i }));
-    await user.click(rewardQueries.getByRole('button', { name: /^close$/i }));
     await user.click(screen.getByRole('button', { name: /refresh catalog/i }));
 
     await waitFor(() => expect(screen.getByText(/catalog loaded from local snapshot/i)).toBeInTheDocument());

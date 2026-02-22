@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { APP_VERSION } from '../config/constants';
 import { useStorageHealth } from '../hooks/useStorageHealth';
 
@@ -6,7 +7,12 @@ export const HealthRoute = () => {
 
   return (
     <section className="panel">
-      <h2>Health Check</h2>
+      <div className="composer-header">
+        <h2>Health Check</h2>
+        <Link className="health-back-link" to="/">
+          Back to App
+        </Link>
+      </div>
       <dl className="kv-list">
         <div>
           <dt>App version</dt>

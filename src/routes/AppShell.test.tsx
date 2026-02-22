@@ -23,11 +23,10 @@ describe('AppLayout', () => {
     render(<RouterProvider router={router} />);
   };
 
-  it('renders mobile shell with title and navigation', () => {
+  it('renders mobile shell with title', () => {
     renderLayout();
 
     expect(screen.getByRole('heading', { name: /leyfarer inventory/i })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: /primary/i })).toBeInTheDocument();
   });
 
   it('opens health route after tapping title five times', async () => {
@@ -41,5 +40,6 @@ describe('AppLayout', () => {
     }
 
     expect(await screen.findByRole('heading', { name: /health check/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /back to app/i })).toHaveAttribute('href', '/');
   });
 });
