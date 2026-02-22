@@ -67,8 +67,13 @@ export class SideQuestCatalogRepository {
       return nextEntry;
     }
 
+    const existing = entries[index];
+    if (!existing) {
+      throw new DomainValidationError('Missing item', [{ path: 'id', message: 'item was not found' }]);
+    }
+
     const merged = normalizeSideQuestCatalogEntry({
-      ...entries[index],
+      ...existing,
       ...draft,
       id
     });
@@ -93,7 +98,7 @@ export class SideQuestCatalogRepository {
   }
 
   private async readAll(): Promise<SideQuestCatalogEntry[]> {
-    const raw = await this.storageService.read<unknown>(SIDE_QUEST_CATALOG_KEY);
+    const raw = await this.storageService.read(SIDE_QUEST_CATALOG_KEY);
     return normalizeSideQuestCatalog(raw);
   }
 

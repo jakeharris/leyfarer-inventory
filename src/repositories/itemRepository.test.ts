@@ -155,7 +155,9 @@ describe('ItemRepository', () => {
 
     const remaining = await repository.list({ isConsumable: true });
     expect(remaining).toHaveLength(1);
-    expect(remaining[0].id).toBe(stack.id);
-    expect(remaining[0].quantity).toBe(1);
+    const firstRemaining = remaining[0];
+    expect(firstRemaining).toBeDefined();
+    expect(firstRemaining?.id).toBe(stack.id);
+    expect(firstRemaining?.quantity).toBe(1);
   });
 });

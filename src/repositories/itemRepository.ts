@@ -159,6 +159,9 @@ export class ItemRepository {
     }
 
     const current = items[index];
+    if (!current) {
+      throw new DomainValidationError('Missing item', [{ path: 'id', message: 'item was not found' }]);
+    }
     if (!current.isMagic || !current.magicDetails?.requiresAttunement) {
       throw new DomainValidationError('Invalid attunement target', [
         {
@@ -208,6 +211,9 @@ export class ItemRepository {
 
     const nextItem = items[nextIndex];
     const previousItem = items[previousIndex];
+    if (!nextItem || !previousItem) {
+      throw new DomainValidationError('Missing item', [{ path: 'id', message: 'item was not found' }]);
+    }
 
     if (!nextItem.isMagic || !nextItem.magicDetails?.requiresAttunement) {
       throw new DomainValidationError('Invalid attunement target', [
@@ -265,6 +271,9 @@ export class ItemRepository {
     }
 
     const current = items[index];
+    if (!current) {
+      throw new DomainValidationError('Missing item', [{ path: 'id', message: 'item was not found' }]);
+    }
     if (!current.isConsumable) {
       throw new DomainValidationError('Invalid consumable action', [
         { path: 'isConsumable', message: 'Only consumable items can be spent' }
@@ -291,7 +300,7 @@ export class ItemRepository {
   }
 
   private async readAll(): Promise<Item[]> {
-    const rawItems = await this.storageService.read<unknown>(ITEMS_KEY);
+    const rawItems = await this.storageService.read(ITEMS_KEY);
     return normalizeItems(rawItems);
   }
 

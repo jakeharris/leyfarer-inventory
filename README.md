@@ -178,3 +178,10 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
   - persisted catalog sync status and refresh metadata surfaced in-app
   - manual catalog create/edit fallback always available when sync fails
   - side quest reward flow to create standard inventory `Item` records from a selected quest
+- Phase 06 backup/restore + one-way transfer:
+  - versioned inventory-only payload export/import with deterministic `replace` or `merge` strategy
+  - import validation with schema migration support for legacy payloads
+  - in-app `Transfer` panel with `Export JSON`, `Import JSON`, `Show QR`, and `Scan QR` actions
+  - `Show QR` renders camera-scannable chunk QR images; `Start Camera Scan` captures chunks where browser support exists
+  - QR transfer chunking/assembly with explicit error messages for corrupt or incomplete scans
+  - destructive import guardrail requiring replace confirmation before inventory overwrite

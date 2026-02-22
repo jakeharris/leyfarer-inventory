@@ -200,7 +200,7 @@ export class SideQuestCatalogSyncService {
   ) {}
 
   async getSyncState(): Promise<SideQuestCatalogSyncState> {
-    const raw = await this.storageService.read<unknown>(STORAGE.keys.sideQuestCatalogSyncState);
+    const raw = await this.storageService.read(STORAGE.keys.sideQuestCatalogSyncState);
     return normalizeSideQuestCatalogSyncState(raw);
   }
 
@@ -217,7 +217,7 @@ export class SideQuestCatalogSyncService {
     const fetchedCount = fetchedEntries.length;
 
     const existingEntries = normalizeSideQuestCatalog(
-      await this.storageService.read<unknown>(STORAGE.keys.sideQuestCatalog)
+      await this.storageService.read(STORAGE.keys.sideQuestCatalog)
     );
 
     const mergedEntries = mergeCatalogEntries(existingEntries, fetchedEntries, nowIso);

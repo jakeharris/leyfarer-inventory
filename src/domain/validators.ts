@@ -270,8 +270,19 @@ export const parseMainSessionRef = (value: string): { chapter: number; session: 
     ]);
   }
 
-  const chapter = Number.parseInt(match[1], 10);
-  const session = Number.parseInt(match[2], 10);
+  const chapterRaw = match[1];
+  const sessionRaw = match[2];
+  if (!chapterRaw || !sessionRaw) {
+    throw new DomainValidationError('Invalid main session reference', [
+      {
+        path: 'sourceRef',
+        message: 'Expected format <Chapter>.<Session> (for example: 10.3)'
+      }
+    ]);
+  }
+
+  const chapter = Number.parseInt(chapterRaw, 10);
+  const session = Number.parseInt(sessionRaw, 10);
 
   if (chapter < MIN_CHAPTER || chapter > MAX_CHAPTER) {
     throw new DomainValidationError('Invalid chapter', [

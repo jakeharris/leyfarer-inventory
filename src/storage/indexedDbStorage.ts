@@ -95,4 +95,4 @@ export class IndexedDbStorageService implements StorageService {
 
 export const createStorageService = () => new IndexedDbStorageService();
 
-export const storageService: StorageService = createStorageService();
+export const storageService = createStorageService();

@@ -61,7 +61,7 @@ describe('HomeRoute', () => {
       await user.type(formQueries.getByRole('textbox', { name: /^name$/i }), options.name);
 
       if (options.consumable) {
-        await user.click(formQueries.getByRole('checkbox', { name: 'Consumable', exact: true }));
+        await user.click(formQueries.getByRole('checkbox', { name: /^consumable$/i }));
       }
 
       if (options.sourceType || options.sourceRef) {
@@ -222,5 +222,58 @@ describe('HomeRoute', () => {
 
     await user.type(screen.getByRole('searchbox', { name: /search catalog/i }), 'offline');
     await waitFor(() => expect(screen.getByText('Offline Quest')).toBeInTheDocument());
+  });
+
+  it('supports QR export and import with replace confirmation guardrail', async () => {
+    const user = userEvent.setup();
+    render(<HomeRoute />);
+    await user.click(await screen.findByRole('button', { name: /add item/i }));
+
+    await user.type(screen.getByRole('textbox', { name: /^name$/i }), 'Moon Key');
+    await user.click(screen.getByRole('button', { name: /save item/i }));
+    await waitFor(() => expect(screen.getByText('Moon Key')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /transfer/i }));
+    await screen.findByRole('heading', { name: /backup and transfer/i });
+    await user.click(screen.getByRole('button', { name: /show qr/i }));
+    await screen.findByRole('img', { name: /qr chunk 1 of/i });
+
+    const allQrChunks = (await screen.findByRole('textbox', {
+      name: /all qr chunks/i
+    })) as HTMLTextAreaElement;
+    const qrText = allQrChunks.value;
+    expect(qrText.length).toBeGreaterThan(0);
+
+    const itemCard = screen.getByText('Moon Key').closest('li');
+    expect(itemCard).not.toBeNull();
+    await user.click(within(itemCard as HTMLElement).getByRole('button', { name: /^remove$/i }));
+    await user.click(screen.getByRole('button', { name: /^remove item$/i }));
+    await waitFor(() => expect(screen.queryByText('Moon Key')).not.toBeInTheDocument());
+
+    await user.type(screen.getByRole('textbox', { name: /scan qr chunks/i }), qrText);
+    await user.click(
+      screen.getByRole('checkbox', {
+        name: /i understand this will replace local inventory data/i
+      })
+    );
+    await user.click(screen.getByRole('button', { name: /^scan qr$/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^scan qr$/i })).not.toBeDisabled()
+    );
+    expect(screen.getByText('Moon Key')).toBeInTheDocument();
+  });
+
+  it('shows fallback guidance when camera qr scanning is unavailable', async () => {
+    const user = userEvent.setup();
+    render(<HomeRoute />);
+
+    await user.click(await screen.findByRole('button', { name: /transfer/i }));
+    await screen.findByRole('heading', { name: /backup and transfer/i });
+    await user.click(screen.getByRole('button', { name: /start camera scan/i }));
+
+    expect(
+      screen.getByText(/this browser does not expose camera qr detection/i)
+    ).toBeInTheDocument();
   });
 });

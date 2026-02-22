@@ -87,7 +87,7 @@ export interface SideQuestCatalogEntry {
   status: SideQuestCatalogStatus;
 }
 
-export type SideQuestCatalogEntryDraft = Omit<SideQuestCatalogEntry, 'id'> & { id?: string };
+export type SideQuestCatalogEntryDraft = Partial<Omit<SideQuestCatalogEntry, 'id'>> & { id?: string };
 
 export interface SideQuestCatalogQuery {
   search?: string;

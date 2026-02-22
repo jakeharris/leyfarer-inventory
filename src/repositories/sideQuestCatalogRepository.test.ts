@@ -55,6 +55,8 @@ describe('SideQuestCatalogRepository', () => {
 
     const results = await repository.list({ search: 'ley' });
     expect(results).toHaveLength(1);
-    expect(results[0].name).toBe('Leyline Cart');
+    const first = results[0];
+    expect(first).toBeDefined();
+    expect(first?.name).toBe('Leyline Cart');
   });
 });

@@ -78,8 +78,10 @@ describe('runStorageMigrations', () => {
 
     const items = await storageService.read<Array<Record<string, unknown>>>(STORAGE.keys.items);
     expect(items).toHaveLength(1);
-    expect(items?.[0].isComplete).toBe(false);
-    expect(items?.[0].sourceRef).toBe('10.3');
-    expect(items?.[0].tags).toEqual(['wand']);
+    const first = items?.[0];
+    expect(first).toBeDefined();
+    expect(first?.isComplete).toBe(false);
+    expect(first?.sourceRef).toBe('10.3');
+    expect(first?.tags).toEqual(['wand']);
   });
 });

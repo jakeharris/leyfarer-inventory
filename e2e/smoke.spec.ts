@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 test('app shell loads and survives reload', async ({ page }) => {
   await page.goto('/');
@@ -91,10 +92,35 @@ test('snapshot catalog refresh supports manual catalog and reward entry', async 
   await page.getByRole('searchbox', { name: 'Search Catalog' }).fill('beneath');
   await expect(page.getByText('Beneath the Brewery')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Add Rewards' }).click();
+  await page.getByRole('button', { name: 'Add Rewards' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Add Side Quest Rewards' })).toBeVisible();
   await page.getByRole('combobox', { name: 'Side Quest' }).selectOption({ label: 'Beneath the Brewery' });
   await page.getByRole('textbox', { name: /Reward Item Names/ }).fill('Clockwork Token');
   await page.getByRole('button', { name: 'Save Rewards' }).click();
 
   await expect(page.getByText('Clockwork Token')).toBeVisible();
+});
+
+test('imports fixture QR payload through transfer flow', async ({ page }) => {
+  await page.goto('/');
+
+  const qrFixture = readFileSync(new URL('./fixtures/qr-transfer-chunks.txt', import.meta.url), 'utf8').trim();
+
+  await page.getByRole('button', { name: 'Transfer' }).click();
+  await expect(page.getByRole('heading', { name: 'Backup and Transfer' })).toBeVisible();
+  await page.getByRole('button', { name: 'Show QR' }).click();
+  await expect(page.getByRole('img', { name: /QR chunk/i })).toBeVisible();
+
+  await page
+    .getByRole('textbox', { name: 'Scan QR Chunks' })
+    .fill(qrFixture);
+  await page
+    .getByRole('checkbox', {
+      name: 'I understand this will replace local inventory data.'
+    })
+    .check();
+  await page.getByRole('button', { name: 'Scan QR' }).click();
+
+  await expect(page.getByText('Fixture Potion')).toBeVisible();
+  await expect(page.getByText(/QR import complete/)).toBeVisible();
 });

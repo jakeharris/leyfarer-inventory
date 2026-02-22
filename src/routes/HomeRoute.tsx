@@ -1,17 +1,34 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import QRCode from 'qrcode';
 import type {
   Item,
   ItemDraft,
+  MagicRarity,
   MagicItemDetails,
   SaveAbility,
   SideQuestCatalogEntry,
   SideQuestCatalogSyncState,
   SourceType
 } from '../domain/types';
+import { magicRarities } from '../domain/types';
 import { isMagicItemComplete } from '../domain/validators';
 import { createItemRepository, createSideQuestCatalogRepository } from '../repositories';
 import { createSideQuestCatalogSyncService } from '../services/sideQuestCatalogSyncService';
+import { createTransferService, type ImportStrategy } from '../services/transferService';
 import { storageService } from '../storage';
+
+interface BarcodeDetectorResultLike {
+  rawValue?: string;
+}
+
+interface BarcodeDetectorLike {
+  detect(source: ImageBitmapSource): Promise<BarcodeDetectorResultLike[]>;
+}
+
+type BarcodeDetectorConstructorLike = new (options: { formats: string[] }) => BarcodeDetectorLike;
+
+const BarcodeDetectorApi = (globalThis as { BarcodeDetector?: BarcodeDetectorConstructorLike })
+  .BarcodeDetector;
 
 interface FormState {
   name: string;
@@ -60,6 +77,13 @@ interface RewardFormState {
   isConsumable: boolean;
   quantity: string;
   notes: string;
+}
+
+interface TransferFormState {
+  importJson: string;
+  importQr: string;
+  strategy: ImportStrategy;
+  confirmReplace: boolean;
 }
 
 const ALL_SOURCES_VALUE = '__all_sources__';
@@ -112,6 +136,13 @@ const defaultRewardFormState = (): RewardFormState => ({
   notes: ''
 });
 
+const defaultTransferFormState = (): TransferFormState => ({
+  importJson: '',
+  importQr: '',
+  strategy: 'replace',
+  confirmReplace: false
+});
+
 const defaultSyncState = (): SideQuestCatalogSyncState => ({
   status: 'idle',
   fetchedCount: 0,
@@ -139,6 +170,41 @@ const splitLines = (value: string): string[] =>
     .split('\n')
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
+
+const parseQrChunkMetadata = (
+  value: string
+): { transferId: string; total: number; index: number } | null => {
+  const parts = value.trim().split(':');
+  if (parts.length !== 5) {
+    return null;
+  }
+
+  const [prefix, transferId, totalRaw, indexRaw] = parts;
+  if (prefix !== 'LFIQR1' || !transferId || !totalRaw || !indexRaw) {
+    return null;
+  }
+
+  const total = Number.parseInt(totalRaw, 10);
+  const index = Number.parseInt(indexRaw, 10);
+  if (!Number.isInteger(total) || !Number.isInteger(index) || total <= 0 || index <= 0 || index > total) {
+    return null;
+  }
+
+  return {
+    transferId,
+    total,
+    index
+  };
+};
+
+const toMagicRarity = (value: string): MagicRarity | undefined => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  return magicRarities.find((rarity) => rarity === trimmed);
+};
 
 const includesNeedle = (value: string | undefined, needle: string): boolean =>
   Boolean(value && value.toLowerCase().includes(needle));
@@ -211,7 +277,7 @@ const buildMagicDetails = (form: FormState): MagicItemDetails | undefined => {
   const saveDc = toNumber(form.saveDc);
   const saveAbility = form.saveAbility.trim() as SaveAbility | '';
   const spellNames = splitCsv(form.spells);
-  const rarity = form.rarity.trim();
+  const rarity = toMagicRarity(form.rarity);
   const recharge = form.chargesRecharge.trim();
   const resetOn = form.usesResetOn.trim();
 
@@ -234,7 +300,7 @@ const buildMagicDetails = (form: FormState): MagicItemDetails | undefined => {
       : undefined;
 
   return {
-    rarity: rarity || undefined,
+    rarity,
     requiresAttunement: form.requiresAttunement,
     attuned: form.requiresAttunement ? form.attuned : false,
     charges,
@@ -273,17 +339,20 @@ export const HomeRoute = () => {
     () => createSideQuestCatalogSyncService(storageService),
     []
   );
+  const transferService = useMemo(() => createTransferService(storageService), []);
   const [items, setItems] = useState<Item[]>([]);
   const [catalogEntries, setCatalogEntries] = useState<SideQuestCatalogEntry[]>([]);
   const [syncState, setSyncState] = useState<SideQuestCatalogSyncState>(() => defaultSyncState());
   const [form, setForm] = useState<FormState>(() => defaultFormState());
   const [catalogForm, setCatalogForm] = useState<CatalogFormState>(() => defaultCatalogFormState());
   const [rewardForm, setRewardForm] = useState<RewardFormState>(() => defaultRewardFormState());
+  const [transferForm, setTransferForm] = useState<TransferFormState>(() => defaultTransferFormState());
   const [filters, setFilters] = useState<ListFilters>(() => defaultFilters());
   const [showFilters, setShowFilters] = useState(false);
   const [showComposer, setShowComposer] = useState(false);
   const [showRewardComposer, setShowRewardComposer] = useState(false);
   const [showCatalogManager, setShowCatalogManager] = useState(false);
+  const [showTransferPanel, setShowTransferPanel] = useState(false);
   const [showExtraFields, setShowExtraFields] = useState(false);
   const [showCatalogEditor, setShowCatalogEditor] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState('');
@@ -292,6 +361,23 @@ export const HomeRoute = () => {
   const [attunementTargetId, setAttunementTargetId] = useState<string | null>(null);
   const [replacementId, setReplacementId] = useState<string>('');
   const [catalogRefreshPending, setCatalogRefreshPending] = useState(false);
+  const [transferPending, setTransferPending] = useState(false);
+  const [transferNotice, setTransferNotice] = useState<string | null>(null);
+  const [transferExportJson, setTransferExportJson] = useState('');
+  const [transferQrChunks, setTransferQrChunks] = useState<string[]>([]);
+  const [transferQrIndex, setTransferQrIndex] = useState(0);
+  const [transferQrImageUrl, setTransferQrImageUrl] = useState<string | null>(null);
+  const [cameraScanActive, setCameraScanActive] = useState(false);
+  const [cameraScanPending, setCameraScanPending] = useState(false);
+  const [cameraScanUnsupported, setCameraScanUnsupported] = useState(false);
+  const [cameraScanStatus, setCameraScanStatus] = useState('Camera scanner idle.');
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const cameraFrameRequestRef = useRef<number | null>(null);
+  const cameraCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const cameraDetectorRef = useRef<BarcodeDetectorLike | null>(null);
+  const isScanningFrameRef = useRef(false);
+  const lastScanAtRef = useRef(0);
   const [status, setStatus] = useState<LoadState>('loading');
   const [error, setError] = useState<string | null>(null);
 
@@ -358,6 +444,103 @@ export const HomeRoute = () => {
       setFilters((prev) => ({ ...prev, sourceRef: ALL_SOURCES_VALUE }));
     }
   }, [filters.sourceRef, sourceRefOptions]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const currentChunk = transferQrChunks[transferQrIndex];
+    if (!currentChunk) {
+      setTransferQrImageUrl(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const render = async () => {
+      try {
+        const svg = await QRCode.toString(currentChunk, {
+          type: 'svg',
+          errorCorrectionLevel: 'M',
+          margin: 1,
+          width: 280
+        });
+        const image = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+
+        if (!cancelled) {
+          setTransferQrImageUrl(image);
+        }
+      } catch (nextError) {
+        if (!cancelled) {
+          setTransferQrImageUrl(null);
+          setError(nextError instanceof Error ? nextError.message : 'Unable to render QR image');
+        }
+      }
+    };
+
+    void render();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [transferQrChunks, transferQrIndex]);
+
+  useEffect(
+    () => () => {
+      if (cameraFrameRequestRef.current !== null) {
+        cancelAnimationFrame(cameraFrameRequestRef.current);
+      }
+
+      if (cameraStreamRef.current) {
+        for (const track of cameraStreamRef.current.getTracks()) {
+          track.stop();
+        }
+      }
+    },
+    []
+  );
+
+  const qrScanProgress = useMemo(() => {
+    const lines = splitLines(transferForm.importQr);
+    if (lines.length === 0) {
+      return null;
+    }
+
+    const metadata = lines
+      .map((line) => parseQrChunkMetadata(line))
+      .filter(
+        (
+          entry
+        ): entry is {
+          transferId: string;
+          total: number;
+          index: number;
+        } => entry !== null
+      );
+    if (metadata.length === 0) {
+      return null;
+    }
+
+    const first = metadata[0];
+    if (!first) {
+      return null;
+    }
+
+    const transferId = first.transferId;
+    const total = first.total;
+    if (metadata.some((entry) => entry.transferId !== transferId || entry.total !== total)) {
+      return null;
+    }
+
+    const uniqueChunks = new Set<number>();
+    for (const entry of metadata) {
+      uniqueChunks.add(entry.index);
+    }
+
+    return {
+      captured: uniqueChunks.size,
+      total
+    };
+  }, [transferForm.importQr]);
 
   const attunedItems = useMemo(
     () => items.filter((item) => Boolean(item.magicDetails?.attuned)),
@@ -690,6 +873,315 @@ export const HomeRoute = () => {
     }
   };
 
+  const requiresReplaceConfirmation = transferForm.strategy === 'replace';
+
+  const ensureImportGuardrails = (): boolean => {
+    if (requiresReplaceConfirmation && !transferForm.confirmReplace) {
+      setError('Confirm replacement before importing with replace strategy');
+      return false;
+    }
+
+    return true;
+  };
+
+  const resetTransferExportState = () => {
+    setTransferNotice(null);
+    setTransferExportJson('');
+    setTransferQrChunks([]);
+    setTransferQrIndex(0);
+    setTransferQrImageUrl(null);
+    setCameraScanStatus('Camera scanner idle.');
+  };
+
+  const openTransferPanel = () => {
+    setShowTransferPanel(true);
+    setShowComposer(false);
+    setShowRewardComposer(false);
+    setShowCatalogManager(false);
+    setCameraScanUnsupported(false);
+    setTransferForm(defaultTransferFormState());
+    resetTransferExportState();
+    setError(null);
+  };
+
+  const closeTransferPanel = () => {
+    stopCameraScan();
+    setShowTransferPanel(false);
+    setTransferForm(defaultTransferFormState());
+    resetTransferExportState();
+  };
+
+  const onExportJson = async () => {
+    setTransferPending(true);
+    setError(null);
+    setTransferNotice(null);
+
+    try {
+      const exported = await transferService.exportJson();
+      setTransferExportJson(exported);
+      setTransferNotice('JSON payload ready. Use Download JSON or copy/paste.');
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Unable to export JSON payload');
+    } finally {
+      setTransferPending(false);
+    }
+  };
+
+  const onDownloadJson = async () => {
+    setTransferPending(true);
+    setError(null);
+    setTransferNotice(null);
+
+    try {
+      let jsonPayload = transferExportJson;
+
+      if (!jsonPayload) {
+        jsonPayload = await transferService.exportJson();
+        setTransferExportJson(jsonPayload);
+      }
+
+      const blob = new Blob([jsonPayload], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `leyfarer-inventory-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setTransferNotice('JSON backup downloaded.');
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Unable to download JSON backup');
+    } finally {
+      setTransferPending(false);
+    }
+  };
+
+  const onGenerateQrChunks = async () => {
+    setTransferPending(true);
+    setError(null);
+    setTransferNotice(null);
+
+    try {
+      const payload = await transferService.exportPayload();
+      const chunks = transferService.encodePayloadToQrChunks(payload);
+      setTransferQrChunks(chunks);
+      setTransferQrIndex(0);
+      setTransferNotice(`QR export ready (${chunks.length} chunk${chunks.length === 1 ? '' : 's'}).`);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Unable to generate QR transfer data');
+    } finally {
+      setTransferPending(false);
+    }
+  };
+
+  const stopCameraScan = useCallback(() => {
+    if (cameraFrameRequestRef.current !== null) {
+      cancelAnimationFrame(cameraFrameRequestRef.current);
+      cameraFrameRequestRef.current = null;
+    }
+
+    if (cameraStreamRef.current) {
+      for (const track of cameraStreamRef.current.getTracks()) {
+        track.stop();
+      }
+      cameraStreamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    setCameraScanActive(false);
+    setCameraScanPending(false);
+    setCameraScanStatus('Camera scanner stopped.');
+  }, []);
+
+  const appendScannedQrChunk = useCallback((chunk: string) => {
+    setTransferForm((prev) => {
+      const existing = splitLines(prev.importQr);
+      if (existing.includes(chunk)) {
+        return prev;
+      }
+
+      const nextImportQr = existing.length > 0 ? `${existing.join('\n')}\n${chunk}` : chunk;
+      return {
+        ...prev,
+        importQr: nextImportQr
+      };
+    });
+  }, []);
+
+  const runCameraScanFrame = useCallback(() => {
+    if (!cameraScanActive) {
+      return;
+    }
+
+    const loop = async () => {
+      if (!cameraScanActive) {
+        return;
+      }
+
+      const video = videoRef.current;
+      const detector = cameraDetectorRef.current;
+      if (!video || !detector || video.readyState < 2) {
+        cameraFrameRequestRef.current = requestAnimationFrame(() => {
+          void loop();
+        });
+        return;
+      }
+
+      const now = performance.now();
+      if (now - lastScanAtRef.current < 180) {
+        cameraFrameRequestRef.current = requestAnimationFrame(() => {
+          void loop();
+        });
+        return;
+      }
+
+      lastScanAtRef.current = now;
+
+      if (!isScanningFrameRef.current) {
+        isScanningFrameRef.current = true;
+        try {
+          const canvas = cameraCanvasRef.current ?? document.createElement('canvas');
+          cameraCanvasRef.current = canvas;
+          canvas.width = video.videoWidth || 640;
+          canvas.height = video.videoHeight || 480;
+
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const codes = await detector.detect(canvas);
+            for (const code of codes) {
+              const rawValue = code.rawValue?.trim();
+              if (rawValue) {
+                appendScannedQrChunk(rawValue);
+                const meta = parseQrChunkMetadata(rawValue);
+                if (meta) {
+                  setCameraScanStatus(`Captured QR chunk ${meta.index} of ${meta.total}.`);
+                } else {
+                  setCameraScanStatus('Captured QR payload chunk.');
+                }
+                break;
+              }
+            }
+          }
+        } catch {
+          setCameraScanStatus('Camera scan active. Point at a QR chunk.');
+        } finally {
+          isScanningFrameRef.current = false;
+        }
+      }
+
+      cameraFrameRequestRef.current = requestAnimationFrame(() => {
+        void loop();
+      });
+    };
+
+    void loop();
+  }, [appendScannedQrChunk, cameraScanActive]);
+
+  const onStartCameraScan = async () => {
+    setError(null);
+    setTransferNotice(null);
+
+    if (!BarcodeDetectorApi || !navigator.mediaDevices?.getUserMedia) {
+      setCameraScanUnsupported(true);
+      setCameraScanStatus('Camera QR scan is not supported on this browser. Paste scanned chunks manually.');
+      return;
+    }
+
+    setCameraScanPending(true);
+    setCameraScanUnsupported(false);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' }
+        },
+        audio: false
+      });
+
+      cameraStreamRef.current = stream;
+      const video = videoRef.current;
+      if (!video) {
+        stopCameraScan();
+        setError('Camera preview unavailable');
+        return;
+      }
+
+      video.srcObject = stream;
+      await video.play();
+      cameraDetectorRef.current = new BarcodeDetectorApi({ formats: ['qr_code'] });
+      setCameraScanActive(true);
+      setCameraScanStatus('Camera scan active. Hold QR code in frame.');
+    } catch (nextError) {
+      stopCameraScan();
+      setError(nextError instanceof Error ? nextError.message : 'Unable to start camera scanner');
+    } finally {
+      setCameraScanPending(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!cameraScanActive) {
+      return;
+    }
+
+    runCameraScanFrame();
+  }, [cameraScanActive, runCameraScanFrame]);
+
+  const onImportJson = async () => {
+    if (!transferForm.importJson.trim()) {
+      setError('Paste JSON payload before importing');
+      return;
+    }
+
+    if (!ensureImportGuardrails()) {
+      return;
+    }
+
+    setTransferPending(true);
+    setError(null);
+    setTransferNotice(null);
+
+    try {
+      const result = await transferService.importJson(transferForm.importJson, transferForm.strategy);
+      await loadItems();
+      setTransferNotice(`Import complete (${result.strategy}): ${result.importedItems} items.`);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Unable to import JSON payload');
+    } finally {
+      setTransferPending(false);
+    }
+  };
+
+  const onImportQr = async () => {
+    if (!transferForm.importQr.trim()) {
+      setError('Paste scanned QR chunk data before importing');
+      return;
+    }
+
+    if (!ensureImportGuardrails()) {
+      return;
+    }
+
+    setTransferPending(true);
+    setError(null);
+    setTransferNotice(null);
+
+    try {
+      const result = await transferService.importFromQrChunks(transferForm.importQr, transferForm.strategy);
+      await loadItems();
+      setTransferNotice(`QR import complete (${result.strategy}): ${result.importedItems} items.`);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Unable to import QR payload');
+    } finally {
+      setTransferPending(false);
+    }
+  };
+
   const renderItemCard = (item: Item) => {
     const isAttunable = item.isMagic && Boolean(item.magicDetails?.requiresAttunement);
     const quantity = item.quantity ?? 1;
@@ -788,6 +1280,9 @@ export const HomeRoute = () => {
           </p>
         </div>
         <div className="inventory-header__actions">
+          <button type="button" className="button-secondary" onClick={openTransferPanel}>
+            Transfer
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -1014,6 +1509,191 @@ export const HomeRoute = () => {
               </div>
             </form>
           ) : null}
+        </section>
+      ) : null}
+
+      {showTransferPanel ? (
+        <section className="transfer-panel" role="dialog" aria-modal="true" aria-label="Data transfer">
+          <div className="composer-header">
+            <h3>Backup and Transfer</h3>
+            <button type="button" onClick={closeTransferPanel}>
+              Close
+            </button>
+          </div>
+
+          <p className="catalog-sync-text">
+            One-way sync only: export from one device, then import on another. Choose
+            <strong> replace</strong> to overwrite local inventory or <strong>merge</strong> to keep existing
+            inventory IDs and apply incoming updates.
+          </p>
+
+          <div className="field-grid">
+            <button
+              type="button"
+              className="button-secondary"
+              disabled={transferPending}
+              onClick={() => void onExportJson()}
+            >
+              Export JSON
+            </button>
+            <button
+              type="button"
+              className="button-secondary"
+              disabled={transferPending}
+              onClick={() => void onDownloadJson()}
+            >
+              Download JSON
+            </button>
+          </div>
+
+          <button type="button" disabled={transferPending} onClick={() => void onGenerateQrChunks()}>
+            Show QR
+          </button>
+
+          {transferNotice ? <p className="catalog-sync-text">{transferNotice}</p> : null}
+
+          {transferExportJson ? (
+            <label className="field">
+              Export JSON Payload
+              <textarea readOnly rows={7} value={transferExportJson} />
+            </label>
+          ) : null}
+
+          {transferQrChunks.length > 0 ? (
+            <div className="transfer-qr-view">
+              <p className="catalog-sync-text">
+                QR chunk {transferQrIndex + 1} of {transferQrChunks.length}
+              </p>
+              {transferQrImageUrl ? (
+                <div className="transfer-qr-image-wrap">
+                  <img
+                    src={transferQrImageUrl}
+                    alt={`QR chunk ${transferQrIndex + 1} of ${transferQrChunks.length}`}
+                    className="transfer-qr-image"
+                  />
+                </div>
+              ) : null}
+              <label className="field">
+                Current QR Chunk
+                <textarea readOnly rows={3} value={transferQrChunks[transferQrIndex]} />
+              </label>
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="button-secondary"
+                  disabled={transferQrIndex === 0}
+                  onClick={() => setTransferQrIndex((prev) => Math.max(0, prev - 1))}
+                >
+                  Previous Chunk
+                </button>
+                <button
+                  type="button"
+                  className="button-secondary"
+                  disabled={transferQrIndex >= transferQrChunks.length - 1}
+                  onClick={() =>
+                    setTransferQrIndex((prev) => Math.min(transferQrChunks.length - 1, prev + 1))
+                  }
+                >
+                  Next Chunk
+                </button>
+              </div>
+              <label className="field">
+                All QR Chunks (one per line)
+                <textarea readOnly rows={5} value={transferQrChunks.join('\n')} />
+              </label>
+            </div>
+          ) : null}
+
+          <label className="field">
+            Import strategy
+            <select
+              value={transferForm.strategy}
+              onChange={(event) =>
+                setTransferForm((prev) => ({
+                  ...prev,
+                  strategy: event.target.value as ImportStrategy,
+                  confirmReplace: event.target.value === 'replace' ? prev.confirmReplace : false
+                }))
+              }
+            >
+              <option value="replace">Replace local data</option>
+              <option value="merge">Merge by ID (incoming wins)</option>
+            </select>
+          </label>
+
+          {requiresReplaceConfirmation ? (
+            <label className="checkbox-field">
+              <input
+                type="checkbox"
+                checked={transferForm.confirmReplace}
+                onChange={(event) =>
+                  setTransferForm((prev) => ({ ...prev, confirmReplace: event.target.checked }))
+                }
+              />
+              I understand this will replace local inventory data.
+            </label>
+          ) : null}
+
+          <label className="field">
+            Import JSON Payload
+            <textarea
+              rows={5}
+              value={transferForm.importJson}
+              onChange={(event) => setTransferForm((prev) => ({ ...prev, importJson: event.target.value }))}
+              placeholder="Paste JSON backup payload"
+            />
+          </label>
+
+          <button type="button" disabled={transferPending} onClick={() => void onImportJson()}>
+            Import JSON
+          </button>
+
+          <label className="field">
+            Scan QR Chunks
+            <textarea
+              rows={5}
+              value={transferForm.importQr}
+              onChange={(event) => setTransferForm((prev) => ({ ...prev, importQr: event.target.value }))}
+              placeholder="Paste scanned QR chunks, one per line"
+            />
+          </label>
+
+          <div className="form-actions">
+            {cameraScanActive ? (
+              <button type="button" className="button-secondary" onClick={stopCameraScan}>
+                Stop Camera Scan
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="button-secondary"
+                disabled={cameraScanPending}
+                onClick={() => void onStartCameraScan()}
+              >
+                {cameraScanPending ? 'Starting Camera...' : 'Start Camera Scan'}
+              </button>
+            )}
+          </div>
+
+          <p className="catalog-sync-text">{cameraScanStatus}</p>
+          {cameraScanUnsupported ? (
+            <p className="catalog-sync-text">
+              This browser does not expose camera QR detection. Use your camera app and paste scanned chunk strings.
+            </p>
+          ) : null}
+          {qrScanProgress ? (
+            <p className="catalog-sync-text">
+              Captured {qrScanProgress.captured} of {qrScanProgress.total} chunk(s).
+            </p>
+          ) : null}
+
+          <div className="transfer-camera-preview" aria-label="Camera preview">
+            <video ref={videoRef} muted playsInline />
+          </div>
+
+          <button type="button" disabled={transferPending} onClick={() => void onImportQr()}>
+            Scan QR
+          </button>
         </section>
       ) : null}
 

@@ -72,6 +72,9 @@ Build and maintain a local-first inventory web app for Mocha (catfolk sorcerer) 
 
 - Keep README and product behavior aligned.
 - If a change alters any locked constraint above, call it out explicitly before implementation.
+- Always run Node/npm commands with the project's `.nvmrc` version active.
+  - Use: `source ~/.nvm/nvm.sh && nvm use && <command>`
+  - Example: `source ~/.nvm/nvm.sh && nvm use && npm run lint`
 - Add or update tests when behavior changes in data model, attunement rules, import/export, or consumable handling.
 - Before asserting work is complete, always run:
   - `npm run lint`
