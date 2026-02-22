@@ -12,7 +12,6 @@ Stabilize V1 with migration safety, mobile performance, and complete acceptance 
 - `docs/phases/phase-04.md`
 - `docs/phases/phase-05.md`
 - `docs/phases/phase-06.md`
-- `docs/phases/phase-07.md`
 
 ## Scope
 
@@ -37,7 +36,6 @@ Stabilize V1 with migration safety, mobile performance, and complete acceptance 
    - consumable spend-to-zero
    - side quest sync + manual fallback
    - JSON/QR portability
-   - PDF export correctness
 2. Profile and optimize mobile-critical paths.
 3. Add defensive handling for partial/corrupt stored payloads.
 4. Verify migration safety across version transitions.

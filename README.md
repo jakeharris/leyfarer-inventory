@@ -11,7 +11,6 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
 - Keep app data as source of truth.
 - Store data locally on-device.
 - Allow manual cross-device transfer by QR code (one-way export/import).
-- Export printable PDF pages (8.5"x11") in card layout for appending to the existing character sheet.
 
 ## Product Decisions (Locked for V1)
 
@@ -22,7 +21,6 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
 - Attunement: max 3 slots; if full, attuning prompts replace-one-or-cancel.
 - Consumables: stack quantity model; quantity reaching 0 removes item.
 - Incomplete magic items: explicit `Needs Details` badge and filter.
-- PDF export: 8.5"x11", card-oriented pages for readability.
 - V1 includes automation/scraping support (not deferred).
 
 ## Core User Flows
@@ -64,7 +62,6 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
 - Export JSON backup.
 - Import JSON backup.
 - Export/import by QR for manual device sync.
-- Export PDF pages in card layout.
 
 ## Data Model (Initial)
 
@@ -133,7 +130,6 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
 3. Search, filters, attunement management, consumable spend.
 4. Side quest catalog fetch + manual fallback.
 5. QR export/import + JSON backup/restore.
-6. PDF card export (8.5"x11").
 
 ## Quality Bar
 

@@ -26,7 +26,6 @@ Build and maintain a local-first inventory web app for Mocha (catfolk sorcerer) 
   - Spending down to zero removes item.
 - Exports:
   - JSON backup/import.
-  - PDF 8.5"x11" card-style pages.
 - V1 includes side quest catalog automation/scraping with manual fallback.
 
 ## Domain Rules

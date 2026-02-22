@@ -54,4 +54,4 @@ Deliver session-time inventory usability: fast discovery, attunement controls, a
 ## Out of Scope
 
 - Side quest catalog refresh/scraping.
-- Import/export and PDF generation.
+- Import/export.

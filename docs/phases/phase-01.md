@@ -56,4 +56,4 @@ Establish a production-ready app shell optimized for iPad/iPhone, with local per
 
 - Item model and inventory features.
 - Side quest catalog logic.
-- Import/export and PDF generation.
+- Import/export.
