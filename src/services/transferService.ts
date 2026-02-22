@@ -1,20 +1,26 @@
 import { APP_VERSION, STORAGE } from '../config/constants';
-import type { Item } from '../domain/types';
-import { DomainValidationError, ensureAttunementLimit, normalizeItems } from '../domain/validators';
-import { sanitizeStoredItems } from '../domain/sanitizers';
+import type { Item, SideQuestRewardProgressState } from '../domain/types';
+import {
+  DomainValidationError,
+  ensureAttunementLimit,
+  normalizeItems,
+  normalizeSideQuestRewardProgressState
+} from '../domain/validators';
+import { sanitizeStoredItems, sanitizeStoredSideQuestRewardProgress } from '../domain/sanitizers';
 import type { StorageService } from '../storage';
 
-const PORTABLE_SCHEMA_VERSION = 3;
+const PORTABLE_SCHEMA_VERSION = 4;
 const QR_PREFIX = 'LFIQR1';
 const DEFAULT_QR_CHUNK_SIZE = 700;
 
 export type ImportStrategy = 'replace' | 'merge';
 
-export interface PortablePayloadV3 {
-  schemaVersion: 3;
+export interface PortablePayloadV4 {
+  schemaVersion: 4;
   exportedAt: string;
   appVersion: string;
   items: Item[];
+  sideQuestRewardProgress: SideQuestRewardProgressState;
 }
 
 interface PortablePayloadV2Legacy {
@@ -26,6 +32,13 @@ interface PortablePayloadV2Legacy {
 
 interface PortablePayloadV1Legacy {
   schemaVersion?: 1;
+  items?: unknown;
+}
+
+interface PortablePayloadV3Legacy {
+  schemaVersion?: 3;
+  exportedAt?: unknown;
+  appVersion?: unknown;
   items?: unknown;
 }
 
@@ -54,7 +67,7 @@ const normalizeDateString = (value: unknown, field: string): string => {
   return date.toISOString();
 };
 
-const normalizePortablePayload = (value: unknown): PortablePayloadV3 => {
+const normalizePortablePayload = (value: unknown): PortablePayloadV4 => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new PortableTransferError('Import payload must be an object');
   }
@@ -69,10 +82,14 @@ const normalizePortablePayload = (value: unknown): PortablePayloadV3 => {
     ensureAttunementLimit(migratedItems);
 
     return {
-      schemaVersion: 3,
+      schemaVersion: 4,
       exportedAt: new Date().toISOString(),
       appVersion: 'legacy',
-      items: migratedItems
+      items: migratedItems,
+      sideQuestRewardProgress: {
+        flowSeen: false,
+        entries: []
+      }
     };
   }
 
@@ -82,33 +99,59 @@ const normalizePortablePayload = (value: unknown): PortablePayloadV3 => {
     ensureAttunementLimit(items);
 
     return {
-      schemaVersion: 3,
+      schemaVersion: 4,
       exportedAt: normalizeDateString(legacy.exportedAt, 'exportedAt'),
       appVersion:
         typeof legacy.appVersion === 'string' && legacy.appVersion.trim()
           ? legacy.appVersion.trim()
           : 'legacy',
-      items
+      items,
+      sideQuestRewardProgress: {
+        flowSeen: false,
+        entries: []
+      }
+    };
+  }
+
+  if (schemaVersion === 3) {
+    const legacy = payload as PortablePayloadV3Legacy;
+    const items = normalizeItems(legacy.items);
+    ensureAttunementLimit(items);
+
+    return {
+      schemaVersion: 4,
+      exportedAt: normalizeDateString(legacy.exportedAt, 'exportedAt'),
+      appVersion:
+        typeof legacy.appVersion === 'string' && legacy.appVersion.trim()
+          ? legacy.appVersion.trim()
+          : 'legacy',
+      items,
+      sideQuestRewardProgress: {
+        flowSeen: false,
+        entries: []
+      }
     };
   }
 
   if (schemaVersion !== PORTABLE_SCHEMA_VERSION) {
     throw new PortableTransferError(
-      `Unsupported payload schemaVersion ${String(schemaVersionRaw)}. Expected ${PORTABLE_SCHEMA_VERSION}, 2, or 1.`
+      `Unsupported payload schemaVersion ${String(schemaVersionRaw)}. Expected ${PORTABLE_SCHEMA_VERSION}, 3, 2, or 1.`
     );
   }
 
   const items = normalizeItems(payload.items);
   ensureAttunementLimit(items);
+  const sideQuestRewardProgress = normalizeSideQuestRewardProgressState(payload.sideQuestRewardProgress);
 
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     exportedAt: normalizeDateString(payload.exportedAt, 'exportedAt'),
     appVersion:
       typeof payload.appVersion === 'string' && payload.appVersion.trim()
         ? payload.appVersion.trim()
         : APP_VERSION,
-    items
+    items,
+    sideQuestRewardProgress
   };
 };
 
@@ -150,6 +193,20 @@ const mergeById = <T extends { id: string }>(current: T[], incoming: T[]): T[] =
   return Array.from(map.values());
 };
 
+const mergeSideQuestProgressEntries = <T extends { questId: string }>(current: T[], incoming: T[]): T[] => {
+  const map = new Map<string, T>();
+
+  for (const entry of current) {
+    map.set(entry.questId, entry);
+  }
+
+  for (const entry of incoming) {
+    map.set(entry.questId, entry);
+  }
+
+  return Array.from(map.values());
+};
+
 const parseQrChunks = (value: string): string[] =>
   value
     .split('\n')
@@ -171,15 +228,28 @@ export class TransferService {
     return items;
   }
 
-  async exportPayload(): Promise<PortablePayloadV3> {
+  private async readStoredSideQuestRewardProgressSafely(): Promise<SideQuestRewardProgressState> {
+    const raw = await this.storageService.read(STORAGE.keys.sideQuestRewardProgress);
+    const sanitized = sanitizeStoredSideQuestRewardProgress(raw);
+
+    if (sanitized.changed) {
+      await this.storageService.write(STORAGE.keys.sideQuestRewardProgress, sanitized.value);
+    }
+
+    return sanitized.value;
+  }
+
+  async exportPayload(): Promise<PortablePayloadV4> {
     const items = await this.readStoredItemsSafely();
     ensureAttunementLimit(items);
+    const sideQuestRewardProgress = await this.readStoredSideQuestRewardProgressSafely();
 
     return {
-      schemaVersion: 3,
+      schemaVersion: 4,
       exportedAt: new Date().toISOString(),
       appVersion: APP_VERSION,
-      items
+      items,
+      sideQuestRewardProgress
     };
   }
 
@@ -190,9 +260,11 @@ export class TransferService {
   async importPayload(payload: unknown, strategy: ImportStrategy): Promise<PortableImportResult> {
     const normalized = normalizePortablePayload(payload);
     const importedItems = normalized.items;
+    const importedProgress = normalized.sideQuestRewardProgress;
 
     if (strategy === 'replace') {
       await this.storageService.write(STORAGE.keys.items, importedItems);
+      await this.storageService.write(STORAGE.keys.sideQuestRewardProgress, importedProgress);
       return {
         strategy,
         importedItems: importedItems.length
@@ -202,8 +274,14 @@ export class TransferService {
     const currentItems = await this.readStoredItemsSafely();
     const mergedItems = mergeById(currentItems, importedItems);
     ensureAttunementLimit(mergedItems);
+    const currentProgress = await this.readStoredSideQuestRewardProgressSafely();
+    const mergedProgress = normalizeSideQuestRewardProgressState({
+      flowSeen: currentProgress.flowSeen || importedProgress.flowSeen,
+      entries: mergeSideQuestProgressEntries(currentProgress.entries, importedProgress.entries)
+    });
 
     await this.storageService.write(STORAGE.keys.items, mergedItems);
+    await this.storageService.write(STORAGE.keys.sideQuestRewardProgress, mergedProgress);
 
     return {
       strategy,
@@ -222,7 +300,7 @@ export class TransferService {
     return this.importPayload(parsed, strategy);
   }
 
-  encodePayloadToQrChunks(payload: PortablePayloadV3, chunkSize = DEFAULT_QR_CHUNK_SIZE): string[] {
+  encodePayloadToQrChunks(payload: PortablePayloadV4, chunkSize = DEFAULT_QR_CHUNK_SIZE): string[] {
     if (!Number.isInteger(chunkSize) || chunkSize < 120) {
       throw new PortableTransferError('QR chunk size must be an integer greater than or equal to 120');
     }
@@ -239,7 +317,7 @@ export class TransferService {
     });
   }
 
-  decodePayloadFromQrChunks(scannedValue: string): PortablePayloadV3 {
+  decodePayloadFromQrChunks(scannedValue: string): PortablePayloadV4 {
     const chunks = parseQrChunks(scannedValue);
     if (chunks.length === 0) {
       throw new PortableTransferError('No QR data found. Paste one or more scanned chunks.');

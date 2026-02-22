@@ -155,7 +155,7 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
 - PWA manifest/service worker via `vite-plugin-pwa`.
 - Local persistence foundation with typed IndexedDB storage service and schema version marker.
 - Canonical domain model + runtime validators for items, side quest catalog entries, source/session rules, and attunement limits.
-- Repository layer for inventory items and side quest catalog CRUD/query operations.
+- Repository layer for inventory items, side quest catalog, and side quest reward-progress state.
 - Storage migration runner with forward migration from schema v1 to v2.
 - Health check route for storage initialization and app version visibility.
 - Phase 03 item entry UX:
@@ -173,9 +173,11 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
   - de-duplicated catalog merge preserving manual entries, with `fetched/manual/stale` source status
   - persisted catalog sync status and refresh metadata surfaced in-app
   - manual catalog create/edit fallback always available when sync fails
+  - dedicated `/side-quest-rewards` flow shown on first launch, with skip/resume support
+  - per-side-quest status tracking (`Needs Reward`, `Reward Entered`, `Not Yet Done`) with persistent progress
   - side quest reward flow to create standard inventory `Item` records from a selected quest
 - Phase 06 backup/restore + one-way transfer:
-  - versioned inventory-only payload export/import with deterministic `replace` or `merge` strategy
+  - versioned payload export/import for inventory and side quest reward-progress state, with deterministic `replace` or `merge` strategy
   - import validation with schema migration support for legacy payloads
   - in-app `Transfer` panel with `Export JSON`, `Import JSON`, `Show QR`, and `Scan QR` actions
   - `Show QR` renders camera-scannable chunk QR images; `Start Camera Scan` captures chunks where browser support exists

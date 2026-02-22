@@ -25,19 +25,35 @@ describe('TransferService', () => {
     await deleteDb();
   });
 
-  it('exports inventory-only JSON payload and restores items with replace strategy', async () => {
+  it('exports JSON payload with reward progress and restores with replace strategy', async () => {
     const item = createItem({ id: 'item-a', name: 'Moon Charm' });
 
     await storageService.write(STORAGE.keys.items, [item]);
+    await storageService.write(STORAGE.keys.sideQuestRewardProgress, {
+      flowSeen: true,
+      entries: [
+        {
+          questId: 'quest-a',
+          questName: 'Beneath the Brewery',
+          notYetDone: false,
+          rewardItemHistory: ['Moon Charm'],
+          updatedAt: new Date().toISOString()
+        }
+      ]
+    });
 
     const transfer = createTransferService(storageService);
     const exportedJson = await transfer.exportJson();
     const parsed = JSON.parse(exportedJson) as Record<string, unknown>;
 
     expect(parsed.items).toBeTruthy();
-    expect(parsed.sideQuestCatalog).toBeUndefined();
+    expect(parsed.sideQuestRewardProgress).toBeTruthy();
 
     await storageService.write(STORAGE.keys.items, []);
+    await storageService.write(STORAGE.keys.sideQuestRewardProgress, {
+      flowSeen: false,
+      entries: []
+    });
 
     const result = await transfer.importJson(exportedJson, 'replace');
     expect(result.strategy).toBe('replace');
@@ -46,6 +62,13 @@ describe('TransferService', () => {
     const restoredItems = (await storageService.read(STORAGE.keys.items)) as Array<{ name: string }>;
     expect(restoredItems).toHaveLength(1);
     expect(restoredItems[0]?.name).toBe('Moon Charm');
+
+    const restoredProgress = (await storageService.read(STORAGE.keys.sideQuestRewardProgress)) as {
+      flowSeen: boolean;
+      entries: Array<{ questId: string }>;
+    };
+    expect(restoredProgress.flowSeen).toBe(true);
+    expect(restoredProgress.entries[0]?.questId).toBe('quest-a');
   });
 
   it('migrates schema v1 payloads during import', async () => {
@@ -102,15 +125,53 @@ describe('TransferService', () => {
       createItem({ id: 'shared', name: 'Old Name' }),
       createItem({ id: 'local-only', name: 'Local Only' })
     ]);
+    await storageService.write(STORAGE.keys.sideQuestRewardProgress, {
+      flowSeen: false,
+      entries: [
+        {
+          questId: 'quest-shared',
+          questName: 'Shared Local',
+          notYetDone: true,
+          rewardItemHistory: [],
+          updatedAt: new Date().toISOString()
+        },
+        {
+          questId: 'quest-local',
+          questName: 'Local Quest',
+          notYetDone: false,
+          rewardItemHistory: ['Local Reward'],
+          updatedAt: new Date().toISOString()
+        }
+      ]
+    });
 
     const incomingPayload = {
-      schemaVersion: 3,
+      schemaVersion: 4,
       exportedAt: new Date().toISOString(),
       appVersion: '0.1.0',
       items: [
         createItem({ id: 'shared', name: 'Incoming Name' }),
         createItem({ id: 'incoming-only', name: 'Incoming Only' })
-      ]
+      ],
+      sideQuestRewardProgress: {
+        flowSeen: true,
+        entries: [
+          {
+            questId: 'quest-shared',
+            questName: 'Shared Incoming',
+            notYetDone: false,
+            rewardItemHistory: ['Incoming Reward'],
+            updatedAt: new Date().toISOString()
+          },
+          {
+            questId: 'quest-incoming',
+            questName: 'Incoming Quest',
+            notYetDone: false,
+            rewardItemHistory: ['Incoming Only'],
+            updatedAt: new Date().toISOString()
+          }
+        ]
+      }
     };
 
     const result = await transfer.importPayload(incomingPayload, 'merge');
@@ -125,18 +186,32 @@ describe('TransferService', () => {
     expect(mergedItems.find((item) => item.id === 'shared')?.name).toBe('Incoming Name');
     expect(mergedItems.find((item) => item.id === 'local-only')).toBeTruthy();
     expect(mergedItems.find((item) => item.id === 'incoming-only')).toBeTruthy();
+
+    const mergedProgress = (await storageService.read(STORAGE.keys.sideQuestRewardProgress)) as {
+      flowSeen: boolean;
+      entries: Array<{ questId: string; questName: string }>;
+    };
+    expect(mergedProgress.flowSeen).toBe(true);
+    expect(mergedProgress.entries).toHaveLength(3);
+    expect(mergedProgress.entries.find((entry) => entry.questId === 'quest-shared')?.questName).toBe(
+      'Shared Incoming'
+    );
   });
 
   it('round-trips payload through QR chunk encoding/decoding', async () => {
     const transfer = createTransferService(storageService);
     const payload = {
-      schemaVersion: 3 as const,
+      schemaVersion: 4 as const,
       exportedAt: new Date().toISOString(),
       appVersion: '0.1.0',
       items: [
         createItem({ id: 'item-1', name: 'Traveler Rope' }),
         createItem({ id: 'item-2', name: 'Storm Flask' })
-      ]
+      ],
+      sideQuestRewardProgress: {
+        flowSeen: true,
+        entries: []
+      }
     };
 
     const chunks = transfer.encodePayloadToQrChunks(payload, 120);
@@ -150,10 +225,14 @@ describe('TransferService', () => {
   it('fails with explicit error when a QR chunk is missing', async () => {
     const transfer = createTransferService(storageService);
     const payload = {
-      schemaVersion: 3 as const,
+      schemaVersion: 4 as const,
       exportedAt: new Date().toISOString(),
       appVersion: '0.1.0',
-      items: [createItem({ id: 'item-1', name: 'Traveler Rope' })]
+      items: [createItem({ id: 'item-1', name: 'Traveler Rope' })],
+      sideQuestRewardProgress: {
+        flowSeen: false,
+        entries: []
+      }
     };
 
     const chunks = transfer.encodePayloadToQrChunks(payload, 120);

@@ -169,7 +169,7 @@ describe('HomeRoute', () => {
     expect(screen.getByText('manual')).toBeInTheDocument();
     expect(screen.getByText('No description available.')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /add rewards/i }));
+    await user.click(screen.getByRole('button', { name: /add reward/i }));
     await user.selectOptions(screen.getByRole('combobox', { name: /side quest/i }), 'Beneath the Brewery');
     await user.type(
       screen.getByRole('textbox', { name: /reward item names/i }),
@@ -179,6 +179,13 @@ describe('HomeRoute', () => {
 
     await waitFor(() => expect(screen.getByText('Clockwork Token')).toBeInTheDocument());
     expect(screen.getByText('Mossy Key')).toBeInTheDocument();
+
+    const rewardProgress = await storageService.read<{
+      entries: Array<{ questName: string; rewardItemHistory: string[] }>;
+    }>(STORAGE.keys.sideQuestRewardProgress);
+    expect(rewardProgress?.entries).toHaveLength(1);
+    expect(rewardProgress?.entries[0]?.questName).toBe('Beneath the Brewery');
+    expect(rewardProgress?.entries[0]?.rewardItemHistory).toEqual(['Clockwork Token', 'Mossy Key']);
   });
 
   it('supports removing an item from inventory', async () => {
@@ -204,7 +211,7 @@ describe('HomeRoute', () => {
     const user = userEvent.setup();
     render(<HomeRoute />);
 
-    await user.click(await screen.findByRole('button', { name: /^add rewards$/i }));
+    await user.click(await screen.findByRole('button', { name: /^add reward$/i }));
     await screen.findByRole('heading', { name: /add side quest rewards/i });
     const rewardForm = screen.getByRole('button', { name: /^save rewards$/i }).closest('form');
     expect(rewardForm).not.toBeNull();

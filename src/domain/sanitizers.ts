@@ -1,5 +1,9 @@
-import type { Item, SideQuestCatalogEntry } from './types';
-import { normalizeItem, normalizeSideQuestCatalogEntry } from './validators';
+import type { Item, SideQuestCatalogEntry, SideQuestRewardProgressState } from './types';
+import {
+  normalizeItem,
+  normalizeSideQuestCatalogEntry,
+  normalizeSideQuestRewardProgressState
+} from './validators';
 
 export interface SanitizedArrayResult<T> {
   values: T[];
@@ -69,4 +73,24 @@ export const sanitizeStoredSideQuestCatalog = (
     values,
     changed
   };
+};
+
+export const sanitizeStoredSideQuestRewardProgress = (
+  value: unknown
+): { value: SideQuestRewardProgressState; changed: boolean } => {
+  try {
+    const normalized = normalizeSideQuestRewardProgressState(value);
+    return {
+      value: normalized,
+      changed: false
+    };
+  } catch {
+    return {
+      value: {
+        flowSeen: false,
+        entries: []
+      },
+      changed: true
+    };
+  }
 };

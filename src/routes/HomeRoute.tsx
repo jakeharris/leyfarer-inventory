@@ -13,7 +13,11 @@ import type {
 import { magicRarities } from '../domain/types';
 import { isMagicItemComplete } from '../domain/validators';
 import { BottomSheet } from '../components/BottomSheet';
-import { createItemRepository, createSideQuestCatalogRepository } from '../repositories';
+import {
+  createItemRepository,
+  createSideQuestCatalogRepository,
+  createSideQuestRewardProgressRepository
+} from '../repositories';
 import { createSideQuestCatalogSyncService } from '../services/sideQuestCatalogSyncService';
 import { createTransferService, type ImportStrategy } from '../services/transferService';
 import { storageService } from '../storage';
@@ -336,6 +340,10 @@ type LoadState = 'loading' | 'ready' | 'error';
 export const HomeRoute = () => {
   const repository = useMemo(() => createItemRepository(storageService), []);
   const sideQuestCatalogRepository = useMemo(() => createSideQuestCatalogRepository(storageService), []);
+  const sideQuestRewardProgressRepository = useMemo(
+    () => createSideQuestRewardProgressRepository(storageService),
+    []
+  );
   const sideQuestCatalogSyncService = useMemo(
     () => createSideQuestCatalogSyncService(storageService),
     []
@@ -890,6 +898,11 @@ export const HomeRoute = () => {
         });
       }
 
+      await sideQuestRewardProgressRepository.upsertQuestStatus(selectedQuest.id, selectedQuest.name, {
+        notYetDone: false,
+        rewardItemNames: rewardNames
+      });
+
       closeRewardComposer();
       await loadItems();
     } catch (nextError) {
@@ -1336,7 +1349,7 @@ export const HomeRoute = () => {
               setShowTransferPanel(false);
             }}
           >
-            Add Rewards
+            Add Reward
           </button>
           <button type="button" onClick={startAdd}>
             Add Item

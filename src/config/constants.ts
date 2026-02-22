@@ -16,7 +16,8 @@ export const STORAGE = {
     schemaVersion: 'schemaVersion',
     items: 'items',
     sideQuestCatalog: 'sideQuestCatalog',
-    sideQuestCatalogSyncState: 'sideQuestCatalogSyncState'
+    sideQuestCatalogSyncState: 'sideQuestCatalogSyncState',
+    sideQuestRewardProgress: 'sideQuestRewardProgress'
   },
   schemaVersion: 2
 } as const;

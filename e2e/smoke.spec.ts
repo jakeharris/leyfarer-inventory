@@ -1,11 +1,34 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
-test('app shell loads and survives reload', async ({ page }) => {
-  await page.goto('/');
-
+const openInventory = async (page: Page) => {
   await expect(page.getByRole('heading', { name: 'Leyfarer Inventory' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Inventory', exact: true })).toBeVisible();
+
+  const inventoryHeading = page.getByRole('heading', { name: 'Inventory', exact: true });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (await inventoryHeading.isVisible().catch(() => false)) {
+      break;
+    }
+
+    const skipButton = page.getByRole('button', { name: 'Skip', exact: true });
+    if (!(await skipButton.isVisible().catch(() => false))) {
+      await expect(skipButton).toBeVisible({ timeout: 15000 });
+    }
+    await skipButton.click({ force: true });
+    await page.waitForTimeout(250);
+  }
+
+  if (!(await inventoryHeading.isVisible().catch(() => false))) {
+    await page.goto('/?skipRewards=1');
+  }
+
+  await expect(inventoryHeading).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole('button', { name: 'Add Item' })).toBeVisible({ timeout: 15000 });
+};
+
+test('app shell loads and survives reload', async ({ page }) => {
+  await page.goto('/?skipRewards=1');
+  await openInventory(page);
 
   await page.getByRole('button', { name: 'Add Item' }).click();
   await page.getByRole('textbox', { name: /^Name$/ }).fill('Rations');
@@ -38,7 +61,8 @@ test('app shell loads and survives reload', async ({ page }) => {
 });
 
 test('supports search filters and attunement replacement flow', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?skipRewards=1');
+  await openInventory(page);
 
   const addAttunable = async (name: string, isAttuned: boolean) => {
     await page.getByRole('button', { name: 'Add Item' }).click();
@@ -90,7 +114,8 @@ test('supports search filters and attunement replacement flow', async ({ page })
 });
 
 test('snapshot catalog refresh supports manual catalog and reward entry', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?skipRewards=1');
+  await openInventory(page);
 
   await page.getByRole('button', { name: 'Filters' }).click();
   await page.getByRole('button', { name: 'Catalog' }).click();
@@ -104,7 +129,7 @@ test('snapshot catalog refresh supports manual catalog and reward entry', async 
   await expect(page.getByText('Beneath the Brewery')).toBeVisible();
   await page.getByRole('button', { name: 'Close', exact: true }).click();
 
-  await page.getByRole('button', { name: 'Add Rewards' }).first().click();
+  await page.getByRole('button', { name: 'Add Reward' }).first().click();
   await expect(page.getByRole('heading', { name: 'Add Side Quest Rewards' })).toBeVisible();
   await page.getByRole('combobox', { name: 'Side Quest' }).selectOption({ label: 'Beneath the Brewery' });
   await page.getByRole('textbox', { name: /Reward Item Names/ }).fill('Clockwork Token');

@@ -8,6 +8,8 @@ import {
   type ItemDraft,
   type MagicItemDetails,
   type SideQuestCatalogEntry,
+  type SideQuestRewardProgressEntry,
+  type SideQuestRewardProgressState,
   type SideQuestCatalogSyncState,
   type SourceType
 } from './types';
@@ -448,6 +450,43 @@ export const normalizeSideQuestCatalogSyncState = (value: unknown): SideQuestCat
     fetchedCount,
     errorCount,
     message
+  };
+};
+
+export const normalizeSideQuestRewardProgressEntry = (
+  value: unknown
+): SideQuestRewardProgressEntry => {
+  const input = asObject(value, 'sideQuestRewardProgressEntry');
+  const questId = requiredString(input.questId, 'questId');
+  const questName = requiredString(input.questName, 'questName');
+  const notYetDone = optionalBoolean(input.notYetDone) ?? false;
+  const updatedAt = optionalIsoDateString(input.updatedAt) ?? new Date().toISOString();
+  const rewardItemHistory = normalizeStringList(input.rewardItemHistory);
+
+  return {
+    questId,
+    questName,
+    notYetDone,
+    rewardItemHistory,
+    updatedAt
+  };
+};
+
+export const normalizeSideQuestRewardProgressState = (value: unknown): SideQuestRewardProgressState => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {
+      flowSeen: false,
+      entries: []
+    };
+  }
+
+  const input = value as Record<string, unknown>;
+  const entriesRaw = Array.isArray(input.entries) ? input.entries : [];
+  const entries = entriesRaw.map((entry) => normalizeSideQuestRewardProgressEntry(entry));
+
+  return {
+    flowSeen: optionalBoolean(input.flowSeen) ?? false,
+    entries
   };
 };
 

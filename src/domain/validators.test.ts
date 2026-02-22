@@ -5,6 +5,7 @@ import {
   isMagicItemComplete,
   normalizeItem,
   normalizeSideQuestCatalogEntry,
+  normalizeSideQuestRewardProgressState,
   parseMainSessionRef
 } from './validators';
 
@@ -94,5 +95,35 @@ describe('ensureAttunementLimit', () => {
         createItem({ id: '4', magicDetails: { requiresAttunement: true, attuned: true } })
       ])
     ).toThrow(DomainValidationError);
+  });
+});
+
+describe('normalizeSideQuestRewardProgressState', () => {
+  it('defaults missing payload to empty state', () => {
+    const state = normalizeSideQuestRewardProgressState(undefined);
+    expect(state).toEqual({
+      flowSeen: false,
+      entries: []
+    });
+  });
+
+  it('normalizes reward progress entries', () => {
+    const state = normalizeSideQuestRewardProgressState({
+      flowSeen: true,
+      entries: [
+        {
+          questId: 'quest-1',
+          questName: '  Beneath the Brewery ',
+          notYetDone: false,
+          rewardItemHistory: [' Clockwork Token ', ''],
+          updatedAt: new Date().toISOString()
+        }
+      ]
+    });
+
+    expect(state.flowSeen).toBe(true);
+    expect(state.entries).toHaveLength(1);
+    expect(state.entries[0]?.questName).toBe('Beneath the Brewery');
+    expect(state.entries[0]?.rewardItemHistory).toEqual(['Clockwork Token']);
   });
 });

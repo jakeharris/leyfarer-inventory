@@ -654,6 +654,62 @@ a.button-secondary {
   text-decoration: none;
 }
 
+.side-quest-rewards-panel {
+  padding-bottom: 5.5rem;
+}
+
+.side-quest-rewards-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.side-quest-rewards-header h2 {
+  margin: 0;
+}
+
+.side-quest-rewards-header p {
+  margin: 0.25rem 0 0;
+  color: #344675;
+}
+
+.side-quest-rewards-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.side-quest-reward-card--inactive {
+  opacity: 0.7;
+  background: #eef2f8;
+}
+
+.side-quest-complete-banner {
+  margin: 0;
+  border: 1px solid #b9d9c2;
+  border-radius: 12px;
+  background: #eaf6ee;
+  color: #1c4a33;
+  padding: 0.7rem;
+  font-weight: 600;
+}
+
+.side-quest-rewards-float {
+  position: fixed;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  left: 1rem;
+  right: 1rem;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.side-quest-rewards-float button {
+  pointer-events: auto;
+  width: min(420px, 100%);
+  box-shadow: 0 8px 20px rgba(9, 18, 40, 0.22);
+}
+
 @media (min-width: 800px) {
   .page-shell {
     max-width: 800px;
@@ -666,6 +722,13 @@ a.button-secondary {
 
   .field-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .side-quest-rewards-float {
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    max-width: calc(100% - 2rem);
   }
 }
 

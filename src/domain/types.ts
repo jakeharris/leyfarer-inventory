@@ -102,3 +102,16 @@ export interface SideQuestCatalogSyncState {
   errorCount: number;
   message?: string;
 }
+
+export interface SideQuestRewardProgressEntry {
+  questId: string;
+  questName: string;
+  notYetDone: boolean;
+  rewardItemHistory: string[];
+  updatedAt: string;
+}
+
+export interface SideQuestRewardProgressState {
+  flowSeen: boolean;
+  entries: SideQuestRewardProgressEntry[];
+}

@@ -39,6 +39,14 @@ export const HealthRoute = () => {
           Transfer
         </Link>
       </div>
+
+      <div className="health-section">
+        <h3>Resume side quest configuration.</h3>
+        <p>Continue the Add Rewards flow where you left off.</p>
+        <Link className="button-secondary health-transfer-link" to="/side-quest-rewards">
+          Resume
+        </Link>
+      </div>
     </section>
   );
 };
