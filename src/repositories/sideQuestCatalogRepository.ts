@@ -6,6 +6,7 @@ import type {
 import { STORAGE } from '../config/constants';
 import { DomainValidationError, normalizeSideQuestCatalog, normalizeSideQuestCatalogEntry } from '../domain/validators';
 import type { StorageService } from '../storage';
+import { sanitizeStoredSideQuestCatalog } from '../domain/sanitizers';
 
 const SIDE_QUEST_CATALOG_KEY = STORAGE.keys.sideQuestCatalog;
 
@@ -99,7 +100,14 @@ export class SideQuestCatalogRepository {
 
   private async readAll(): Promise<SideQuestCatalogEntry[]> {
     const raw = await this.storageService.read(SIDE_QUEST_CATALOG_KEY);
-    return normalizeSideQuestCatalog(raw);
+    const sanitized = sanitizeStoredSideQuestCatalog(raw);
+    const entries = normalizeSideQuestCatalog(sanitized.values);
+
+    if (sanitized.changed) {
+      await this.writeAll(entries);
+    }
+
+    return entries;
   }
 
   private async writeAll(entries: SideQuestCatalogEntry[]): Promise<void> {

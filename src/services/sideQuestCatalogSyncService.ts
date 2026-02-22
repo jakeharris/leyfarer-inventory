@@ -6,6 +6,7 @@ import {
   normalizeSideQuestCatalogEntry,
   normalizeSideQuestCatalogSyncState
 } from '../domain/validators';
+import { sanitizeStoredSideQuestCatalog } from '../domain/sanitizers';
 import type { StorageService } from '../storage';
 
 export const SIDE_QUEST_CATALOG_SOURCES = [
@@ -201,7 +202,14 @@ export class SideQuestCatalogSyncService {
 
   async getSyncState(): Promise<SideQuestCatalogSyncState> {
     const raw = await this.storageService.read(STORAGE.keys.sideQuestCatalogSyncState);
-    return normalizeSideQuestCatalogSyncState(raw);
+
+    try {
+      return normalizeSideQuestCatalogSyncState(raw);
+    } catch {
+      const fallback = normalizeSideQuestCatalogSyncState(undefined);
+      await this.storageService.write(STORAGE.keys.sideQuestCatalogSyncState, fallback);
+      return fallback;
+    }
   }
 
   async refreshCatalog(): Promise<SideQuestCatalogSyncState> {
@@ -216,9 +224,12 @@ export class SideQuestCatalogSyncService {
     );
     const fetchedCount = fetchedEntries.length;
 
-    const existingEntries = normalizeSideQuestCatalog(
-      await this.storageService.read(STORAGE.keys.sideQuestCatalog)
-    );
+    const existingRaw = await this.storageService.read(STORAGE.keys.sideQuestCatalog);
+    const sanitizedExisting = sanitizeStoredSideQuestCatalog(existingRaw);
+    const existingEntries = normalizeSideQuestCatalog(sanitizedExisting.values);
+    if (sanitizedExisting.changed) {
+      await this.storageService.write(STORAGE.keys.sideQuestCatalog, existingEntries);
+    }
 
     const mergedEntries = mergeCatalogEntries(existingEntries, fetchedEntries, nowIso);
     await this.storageService.write(STORAGE.keys.sideQuestCatalog, mergedEntries);

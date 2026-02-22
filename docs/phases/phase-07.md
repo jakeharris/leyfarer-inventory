@@ -1,4 +1,4 @@
-# Phase 08: Hardening, Performance, and Release Readiness
+# Phase 07: Hardening, Performance, and Release Readiness
 
 ## Objective
 
@@ -26,6 +26,24 @@ Stabilize V1 with migration safety, mobile performance, and complete acceptance 
 - Performance pass on list rendering, form interactions, and exports.
 - Finalized user-facing error/empty/loading states.
 - Release checklist and known limitations section.
+
+## Completion Notes
+
+- Added end-to-end coverage for:
+  - quick add + incomplete magic save + later completion via edit
+  - consumable spend-to-zero removal
+  - attunement replace flow
+  - side quest catalog refresh/manual fallback + reward creation
+  - QR transfer import/export path
+- Hardened persisted data reads:
+  - invalid/corrupt `items` entries are dropped
+  - invalid/corrupt side quest catalog entries are dropped
+  - attunement overflow in stored data is repaired to max 3 attuned items
+  - invalid sync metadata is reset to idle defaults
+- Added migration safety tests for:
+  - persisted schema newer than app schema
+  - missing migration path
+- Updated README with release checklist and known limitations.
 
 ## Implementation Tasks
 

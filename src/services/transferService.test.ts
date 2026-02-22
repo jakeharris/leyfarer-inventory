@@ -162,5 +162,26 @@ describe('TransferService', () => {
     expect(() => transfer.decodePayloadFromQrChunks(missingLastChunk)).toThrow(PortableTransferError);
     expect(() => transfer.decodePayloadFromQrChunks(missingLastChunk)).toThrow(/Missing QR chunk/);
   });
-});
 
+  it('exports by repairing corrupt persisted items and keeping only valid entries', async () => {
+    const transfer = createTransferService(storageService);
+
+    await storageService.write(STORAGE.keys.items, [
+      createItem({ id: 'attuned-1', name: 'Attuned One', magicDetails: { requiresAttunement: true, attuned: true } }),
+      createItem({ id: 'attuned-2', name: 'Attuned Two', magicDetails: { requiresAttunement: true, attuned: true } }),
+      createItem({ id: 'attuned-3', name: 'Attuned Three', magicDetails: { requiresAttunement: true, attuned: true } }),
+      createItem({ id: 'attuned-4', name: 'Attuned Four', magicDetails: { requiresAttunement: true, attuned: true } }),
+      { id: 'broken-entry' },
+      'invalid'
+    ] as never);
+
+    const payload = await transfer.exportPayload();
+    expect(payload.items).toHaveLength(4);
+    expect(payload.items.filter((item) => item.magicDetails?.attuned)).toHaveLength(3);
+    expect(payload.items.find((item) => item.id === 'attuned-4')?.magicDetails?.attuned).toBe(false);
+
+    const persisted = await storageService.read<Array<{ id: string }>>(STORAGE.keys.items);
+    expect(persisted).toHaveLength(4);
+    expect(persisted?.some((item) => item.id === 'broken-entry')).toBe(false);
+  });
+});

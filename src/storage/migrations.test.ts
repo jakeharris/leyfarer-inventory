@@ -56,6 +56,37 @@ const seedVersionOneData = async (): Promise<void> => {
   });
 };
 
+const seedSchemaVersionOnly = async (schemaVersion: number): Promise<void> => {
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open(STORAGE.dbName, STORAGE.dbVersion);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORAGE.stores.kv)) {
+        db.createObjectStore(STORAGE.stores.kv);
+      }
+      if (!db.objectStoreNames.contains(STORAGE.stores.meta)) {
+        db.createObjectStore(STORAGE.stores.meta);
+      }
+    };
+
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction(STORAGE.stores.meta, 'readwrite');
+      tx.objectStore(STORAGE.stores.meta).put(schemaVersion, STORAGE.keys.schemaVersion);
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      tx.onerror = () => reject(tx.error ?? new Error('Failed to seed schema version'));
+      tx.onabort = () => reject(tx.error ?? new Error('Seeding schema version aborted'));
+    };
+
+    request.onerror = () => reject(request.error ?? new Error('Failed to open test database'));
+  });
+};
+
 describe('runStorageMigrations', () => {
   let storageService: IndexedDbStorageService;
 
@@ -83,5 +114,23 @@ describe('runStorageMigrations', () => {
     expect(first?.isComplete).toBe(false);
     expect(first?.sourceRef).toBe('10.3');
     expect(first?.tags).toEqual(['wand']);
+  });
+
+  it('fails when persisted schema version is newer than app schema', async () => {
+    await storageService.close();
+    await deleteDb();
+    await seedSchemaVersionOnly(STORAGE.schemaVersion + 1);
+    storageService = createStorageService();
+
+    await expect(storageService.init()).rejects.toThrow(/newer than app schema/i);
+  });
+
+  it('fails when migration path is missing for persisted schema version', async () => {
+    await storageService.close();
+    await deleteDb();
+    await seedSchemaVersionOnly(0);
+    storageService = createStorageService();
+
+    await expect(storageService.init()).rejects.toThrow(/No migration registered/i);
   });
 });

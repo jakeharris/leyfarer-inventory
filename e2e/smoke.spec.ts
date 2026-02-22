@@ -9,6 +9,8 @@ test('app shell loads and survives reload', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Add Item' }).click();
   await page.getByRole('textbox', { name: /^Name$/ }).fill('Rations');
+  await page.getByRole('checkbox', { name: 'Consumable', exact: true }).check();
+  await page.getByLabel('Quantity').fill('1');
   await page.getByRole('button', { name: 'Save Item' }).click();
   await expect(page.getByText('Rations')).toBeVisible();
 
@@ -19,10 +21,20 @@ test('app shell loads and survives reload', async ({ page }) => {
   await expect(page.getByText('Unidentified Wand')).toBeVisible();
   await expect(page.locator('.badge-warning', { hasText: 'Needs Details' })).toBeVisible();
 
+  const wandCard = page.locator('li.item-card').filter({ hasText: 'Unidentified Wand' });
+  await wandCard.getByRole('button', { name: 'Edit' }).click();
+  await page.getByRole('combobox', { name: 'Rarity' }).selectOption({ label: 'Rare' });
+  await page.getByRole('button', { name: 'Update Item' }).click();
+  await expect(page.locator('.badge-warning', { hasText: 'Needs Details' })).toHaveCount(0);
+
+  const rationsCard = page.locator('li.item-card').filter({ hasText: 'Rations' });
+  await rationsCard.getByRole('button', { name: 'Spend 1' }).click();
+  await expect(page.getByText('Rations')).toHaveCount(0);
+
   await page.reload();
-  await expect(page.getByText('Rations')).toBeVisible();
+  await expect(page.getByText('Rations')).toHaveCount(0);
   await expect(page.getByText('Unidentified Wand')).toBeVisible();
-  await expect(page.locator('.badge-warning', { hasText: 'Needs Details' })).toBeVisible();
+  await expect(page.locator('.badge-warning', { hasText: 'Needs Details' })).toHaveCount(0);
 });
 
 test('supports search filters and attunement replacement flow', async ({ page }) => {

@@ -7,6 +7,7 @@ import {
   normalizeItemDraft,
   normalizeItems
 } from '../domain/validators';
+import { sanitizeStoredItems } from '../domain/sanitizers';
 import type { StorageService } from '../storage';
 
 const ITEMS_KEY = STORAGE.keys.items;
@@ -301,7 +302,14 @@ export class ItemRepository {
 
   private async readAll(): Promise<Item[]> {
     const rawItems = await this.storageService.read(ITEMS_KEY);
-    return normalizeItems(rawItems);
+    const sanitized = sanitizeStoredItems(rawItems);
+    const items = normalizeItems(sanitized.values);
+
+    if (sanitized.changed) {
+      await this.writeAll(items);
+    }
+
+    return items;
   }
 
   private async writeAll(items: Item[]): Promise<void> {

@@ -181,3 +181,40 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
   - `Show QR` renders camera-scannable chunk QR images; `Start Camera Scan` captures chunks where browser support exists
   - QR transfer chunking/assembly with explicit error messages for corrupt or incomplete scans
   - destructive import guardrail requiring replace confirmation before inventory overwrite
+- Phase 07 hardening + release readiness:
+  - local payload sanitization for corrupt/partial persisted `items` and side quest catalog arrays
+  - automatic repair for attunement overflow in persisted inventory (max 3 attuned)
+  - invalid side quest sync metadata reset to safe idle defaults
+  - expanded migration safety and corrupt-data regression coverage
+  - expanded smoke flow coverage for complete-later magic edits and spend-to-zero consumables
+
+## Release Checklist (V1)
+
+- Run required verification commands (with project `.nvmrc` active):
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run test`
+  - `npm run test:e2e:smoke`
+- Validate durability manually:
+  - create/edit/remove items, then reload app and confirm data persists
+  - export JSON and restore using both `replace` and `merge`
+  - run QR transfer between two browser contexts/devices
+- Validate gameplay-critical behaviors:
+  - attunement replace-one-or-cancel when 3 slots are full
+  - consumable spend removes item at zero quantity
+  - incomplete magic records are clearly marked and filterable
+- Validate catalog behavior:
+  - `Refresh Catalog` loads snapshot data
+  - manual catalog entry/edit still works even if snapshot is empty or stale
+- Run mobile QA pass:
+  - Safari on iPad/iPhone priority
+  - check search/filter responsiveness with realistic inventory size
+  - verify transfer panel and form controls remain usable in portrait orientation
+
+## Known Limitations (V1)
+
+- Data is local-first and local-only by default. There is no automatic cloud sync.
+- QR transfer is manual and one-way; users must explicitly export/import.
+- Camera QR scanning depends on browser support; manual chunk paste is the fallback.
+- Side quest catalog sync is snapshot-based (`npm run catalog:scrape`) and not live remote fetch.
+- Persisted corrupt records are repaired by dropping invalid entries; dropped entries are not recoverable unless a backup exists.

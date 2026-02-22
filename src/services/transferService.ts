@@ -1,6 +1,7 @@
 import { APP_VERSION, STORAGE } from '../config/constants';
 import type { Item } from '../domain/types';
 import { DomainValidationError, ensureAttunementLimit, normalizeItems } from '../domain/validators';
+import { sanitizeStoredItems } from '../domain/sanitizers';
 import type { StorageService } from '../storage';
 
 const PORTABLE_SCHEMA_VERSION = 3;
@@ -158,8 +159,20 @@ const parseQrChunks = (value: string): string[] =>
 export class TransferService {
   constructor(private readonly storageService: StorageService) {}
 
+  private async readStoredItemsSafely(): Promise<Item[]> {
+    const raw = await this.storageService.read(STORAGE.keys.items);
+    const sanitized = sanitizeStoredItems(raw);
+    const items = normalizeItems(sanitized.values);
+
+    if (sanitized.changed) {
+      await this.storageService.write(STORAGE.keys.items, items);
+    }
+
+    return items;
+  }
+
   async exportPayload(): Promise<PortablePayloadV3> {
-    const items = normalizeItems(await this.storageService.read(STORAGE.keys.items));
+    const items = await this.readStoredItemsSafely();
     ensureAttunementLimit(items);
 
     return {
@@ -186,7 +199,7 @@ export class TransferService {
       };
     }
 
-    const currentItems = normalizeItems(await this.storageService.read(STORAGE.keys.items));
+    const currentItems = await this.readStoredItemsSafely();
     const mergedItems = mergeById(currentItems, importedItems);
     ensureAttunementLimit(mergedItems);
 

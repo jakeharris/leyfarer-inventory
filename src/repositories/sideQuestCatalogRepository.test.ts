@@ -59,4 +59,20 @@ describe('SideQuestCatalogRepository', () => {
     expect(first).toBeDefined();
     expect(first?.name).toBe('Leyline Cart');
   });
+
+  it('repairs corrupt catalog payloads by dropping invalid entries', async () => {
+    await storageService.write(STORAGE.keys.sideQuestCatalog, [
+      createSideQuestEntryDraft({ id: 'manual-1', name: 'Valid Quest' }),
+      { id: 'broken-entry', status: 'manual' },
+      42
+    ] as never);
+
+    const entries = await repository.list({});
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.name).toBe('Valid Quest');
+
+    const persisted = await storageService.read<Array<{ id: string }>>(STORAGE.keys.sideQuestCatalog);
+    expect(persisted).toHaveLength(1);
+    expect(persisted?.[0]?.id).toBe('manual-1');
+  });
 });

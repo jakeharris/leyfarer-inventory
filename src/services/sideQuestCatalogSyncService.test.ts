@@ -162,4 +162,28 @@ describe('SideQuestCatalogSyncService', () => {
     const catalog = await storage.read<SideQuestCatalogEntry[]>(STORAGE.keys.sideQuestCatalog);
     expect(catalog).toEqual([manualEntry]);
   });
+
+  it('resets invalid persisted sync state to idle defaults', async () => {
+    const storage = new MemoryStorage();
+    await storage.write(STORAGE.keys.sideQuestCatalogSyncState, {
+      status: 'success',
+      lastRefreshAt: 'not-a-date'
+    });
+
+    const service = new SideQuestCatalogSyncService(storage, {
+      generatedAt: '2026-02-21T00:00:00.000Z',
+      sources: [...SIDE_QUEST_CATALOG_SOURCES],
+      entries: []
+    });
+
+    const state = await service.getSyncState();
+    expect(state).toEqual({
+      status: 'idle',
+      fetchedCount: 0,
+      errorCount: 0
+    });
+
+    const persisted = await storage.read(STORAGE.keys.sideQuestCatalogSyncState);
+    expect(persisted).toEqual(state);
+  });
 });
