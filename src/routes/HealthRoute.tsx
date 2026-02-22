@@ -31,6 +31,14 @@ export const HealthRoute = () => {
           <dd>{storage.status === 'ready' ? storage.schemaVersion ?? 'unset' : '-'}</dd>
         </div>
       </dl>
+
+      <div className="health-section">
+        <h3>Transfer</h3>
+        <p>Open backup and transfer tools.</p>
+        <Link className="button-secondary health-transfer-link" to="/?openTransfer=1">
+          Transfer
+        </Link>
+      </div>
     </section>
   );
 };

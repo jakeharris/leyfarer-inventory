@@ -511,6 +511,14 @@ button {
   color: #1d2950;
 }
 
+a.button-secondary {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
 .button-danger {
   background: #87263a;
   color: #fff4f6;
@@ -622,6 +630,28 @@ button {
 .kv-list dd {
   margin: 0;
   text-align: right;
+}
+
+.health-section {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e3e9fa;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.health-section h3 {
+  margin: 0;
+}
+
+.health-section p {
+  margin: 0;
+  color: #344675;
+}
+
+.health-transfer-link {
+  justify-self: start;
+  text-decoration: none;
 }
 
 @media (min-width: 800px) {

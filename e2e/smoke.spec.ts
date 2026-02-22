@@ -118,7 +118,13 @@ test('imports fixture QR payload through transfer flow', async ({ page }) => {
 
   const qrFixture = readFileSync(new URL('./fixtures/qr-transfer-chunks.txt', import.meta.url), 'utf8').trim();
 
-  await page.getByRole('button', { name: 'Transfer' }).click();
+  const developerOptions = page.getByRole('button', { name: 'Developer Options' });
+  for (let index = 0; index < 5; index += 1) {
+    await developerOptions.click();
+  }
+
+  await expect(page.getByRole('heading', { name: 'Health Check' })).toBeVisible();
+  await page.getByRole('link', { name: 'Transfer' }).click();
   await expect(page.getByRole('heading', { name: 'Backup and Transfer' })).toBeVisible();
   await page.getByRole('button', { name: 'Show QR' }).click();
   await expect(page.getByRole('img', { name: /QR chunk/i })).toBeVisible();

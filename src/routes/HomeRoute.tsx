@@ -917,24 +917,39 @@ export const HomeRoute = () => {
     setCameraScanStatus('Camera scanner idle.');
   };
 
-  const openTransferPanel = () => {
-    setShowTransferPanel(true);
-    setShowFilters(false);
-    setShowComposer(false);
-    setShowRewardComposer(false);
-    closeCatalogManager();
-    setCameraScanUnsupported(false);
-    setTransferForm(defaultTransferFormState());
-    resetTransferExportState();
-    setError(null);
-  };
-
   const closeTransferPanel = () => {
     stopCameraScan();
     setShowTransferPanel(false);
     setTransferForm(defaultTransferFormState());
     resetTransferExportState();
   };
+
+  useEffect(() => {
+    if (showTransferPanel) {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('openTransfer') !== '1') {
+      return;
+    }
+
+    setShowTransferPanel(true);
+    setShowFilters(false);
+    setShowComposer(false);
+    setShowRewardComposer(false);
+    setShowCatalogManager(false);
+    setCatalogForm(defaultCatalogFormState());
+    setShowCatalogEditor(false);
+    setCameraScanUnsupported(false);
+    setTransferForm(defaultTransferFormState());
+    resetTransferExportState();
+    setError(null);
+    params.delete('openTransfer');
+    const nextSearch = params.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash}`;
+    window.history.replaceState(window.history.state, '', nextUrl);
+  }, [showTransferPanel]);
 
   const onExportJson = async () => {
     setTransferPending(true);
@@ -1311,9 +1326,6 @@ export const HomeRoute = () => {
           </p>
         </div>
         <div className="inventory-header__actions">
-          <button type="button" className="button-secondary" onClick={openTransferPanel}>
-            Transfer
-          </button>
           <button
             type="button"
             onClick={() => {

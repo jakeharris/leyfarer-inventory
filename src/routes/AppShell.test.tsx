@@ -41,5 +41,7 @@ describe('AppLayout', () => {
 
     expect(await screen.findByRole('heading', { name: /health check/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /back to app/i })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('heading', { name: /transfer/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^transfer$/i })).toHaveAttribute('href', '/?openTransfer=1');
   });
 });

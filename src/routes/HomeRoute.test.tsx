@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { STORAGE } from '../config/constants';
+import { createItemRepository } from '../repositories';
 import { storageService } from '../storage';
 import { HomeRoute } from './HomeRoute';
 
@@ -19,6 +20,7 @@ describe('HomeRoute', () => {
   };
 
   beforeEach(async () => {
+    window.history.replaceState({}, '', '/');
     await resetStorage();
   });
 
@@ -224,14 +226,20 @@ describe('HomeRoute', () => {
 
   it('supports QR export and import with replace confirmation guardrail', async () => {
     const user = userEvent.setup();
-    render(<HomeRoute />);
-    await user.click(await screen.findByRole('button', { name: /add item/i }));
+    await storageService.init();
+    const repository = createItemRepository(storageService);
+    await repository.create({
+      name: 'Moon Key',
+      isMagic: false,
+      isComplete: true,
+      sourceType: 'other',
+      tags: []
+    });
 
-    await user.type(screen.getByRole('textbox', { name: /^name$/i }), 'Moon Key');
-    await user.click(screen.getByRole('button', { name: /save item/i }));
+    window.history.replaceState({}, '', '/?openTransfer=1');
+    render(<HomeRoute />);
     await waitFor(() => expect(screen.getByText('Moon Key')).toBeInTheDocument());
 
-    await user.click(screen.getByRole('button', { name: /transfer/i }));
     await screen.findByRole('heading', { name: /backup and transfer/i });
     await user.click(screen.getByRole('button', { name: /show qr/i }));
     await screen.findByRole('img', { name: /qr chunk 1 of/i });
@@ -264,9 +272,10 @@ describe('HomeRoute', () => {
 
   it('shows fallback guidance when camera qr scanning is unavailable', async () => {
     const user = userEvent.setup();
+    window.history.replaceState({}, '', '/?openTransfer=1');
     render(<HomeRoute />);
 
-    await user.click(await screen.findByRole('button', { name: /transfer/i }));
+    await screen.findByRole('button', { name: /add item/i });
     await screen.findByRole('heading', { name: /backup and transfer/i });
     await user.click(screen.getByRole('button', { name: /start camera scan/i }));
 
