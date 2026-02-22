@@ -77,6 +77,13 @@ body {
   gap: 0.75rem;
 }
 
+.inventory-header__actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .inventory-header h2 {
   margin: 0;
 }
@@ -222,6 +229,28 @@ button:focus-visible {
   margin: 0;
 }
 
+.catalog-panel {
+  border: 1px solid #cfd9f3;
+  border-radius: 14px;
+  background: #f8faff;
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.catalog-editor,
+.reward-form {
+  border: 1px solid #cfd9f3;
+  border-radius: 14px;
+  background: #f8faff;
+  padding: 0.8rem;
+}
+
+.catalog-sync-text {
+  margin: 0;
+  color: #2f4370;
+}
+
 .inventory-sections {
   display: grid;
   gap: 0.75rem;
@@ -334,6 +363,21 @@ button:focus-visible {
 .badge-consumable {
   background: #d6f2e4;
   color: #0f5838;
+}
+
+.badge-catalog-fetched {
+  background: #d5e5ff;
+  color: #133e85;
+}
+
+.badge-catalog-manual {
+  background: #d6f2e4;
+  color: #0f5838;
+}
+
+.badge-catalog-stale {
+  background: #f9e6b5;
+  color: #563800;
 }
 
 .item-actions {

@@ -18,7 +18,7 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
 - Platform: React + TypeScript + Vite + PWA, usable in iPad/iPhone Safari.
 - Storage: local-only (IndexedDB/local storage), no mandatory cloud backend.
 - Sync: one-way QR transfer (export on device A, import on device B).
-- Side quest catalog: attempted fetch/scrape from TPK pages with manual fallback.
+- Side quest catalog: developer-generated local snapshot from TPK pages with manual fallback in-app.
 - Attunement: max 3 slots; if full, attuning prompts replace-one-or-cancel.
 - Consumables: stack quantity model; quantity reaching 0 removes item.
 - Incomplete magic items: explicit `Needs Details` badge and filter.
@@ -111,14 +111,13 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
 
 ## Scraping/Automation Scope (V1)
 
-- Build a lightweight quest catalog sync that:
-  - Attempts to fetch side quest names from:
-    - `https://www.tpkbrewing.com/faq`
-    - `https://www.tpkbrewing.com/service-page/private-game-leyfarer-content-4-hr?category=36816173-529a-40ff-b6d5-769c978b58a3`
-    - `https://www.tpkbrewing.com/book-online?category=b90cf4ec-ae00-4071-9766-9ea7454a5708` (for thumbnails when available)
-  - Normalizes and de-duplicates entries.
-  - Falls back gracefully to manual catalog management.
-- Add simple refresh automation in-app (manual "Refresh Catalog" action with status and timestamp).
+- Provide a developer-run snapshot scraper:
+  - `npm run catalog:scrape`
+  - Scrapes the supported TPK URLs and writes `src/data/sideQuestCatalog.snapshot.json`
+  - Discovers Leyfarer side quest names across FAQ/service-page/book-online text.
+  - Follows `Read more` links on matching `book-online` entries to capture optional booking description and booking URL.
+  - Emits entries as `{ "name": string, "description"?: string, "booking-url"?: string }`.
+- In-app `Refresh Catalog` now loads this checked-in snapshot into local app state, with manual catalog fallback/editing always available.
 
 ## Non-Goals (For Now)
 
@@ -151,6 +150,7 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
 - `npm run typecheck`
 - `npm run test`
 - `npm run test:e2e:smoke`
+- `npm run catalog:scrape` (when updating side quest catalog snapshot)
 
 ## Current Foundation Status
 
@@ -170,3 +170,10 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
   - quick filters for `Attuned`, `Consumables`, and `Needs Details`
   - attunement controls with replace-one-or-cancel flow when all 3 slots are full
   - one-tap consumable spend actions (including auto-remove when quantity reaches zero)
+- Phase 05 side quest catalog + rewards UX:
+  - developer-run snapshot scraper for configured TPK sources (`npm run catalog:scrape`)
+  - user-triggered `Refresh Catalog` action loads the checked-in snapshot into local app data
+  - de-duplicated catalog merge preserving manual entries, with `fetched/manual/stale` source status
+  - persisted catalog sync status and refresh metadata surfaced in-app
+  - manual catalog create/edit fallback always available when sync fails
+  - side quest reward flow to create standard inventory `Item` records from a selected quest

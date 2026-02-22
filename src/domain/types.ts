@@ -13,11 +13,13 @@ export const saveAbilities = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'] as const
 export const sourceTypes = ['sideQuest', 'mainSession', 'other'] as const;
 
 export const sideQuestStatuses = ['fetched', 'manual', 'stale'] as const;
+export const sideQuestSyncStatuses = ['idle', 'success', 'stale', 'error'] as const;
 
 export type MagicRarity = (typeof magicRarities)[number];
 export type SaveAbility = (typeof saveAbilities)[number];
 export type SourceType = (typeof sourceTypes)[number];
 export type SideQuestCatalogStatus = (typeof sideQuestStatuses)[number];
+export type SideQuestCatalogSyncStatus = (typeof sideQuestSyncStatuses)[number];
 
 export interface MagicSpell {
   name: string;
@@ -78,6 +80,7 @@ export interface ItemQuery {
 export interface SideQuestCatalogEntry {
   id: string;
   name: string;
+  description?: string;
   thumbnailUrl?: string;
   sourceUrl?: string;
   lastSeenAt?: string;
@@ -89,4 +92,13 @@ export type SideQuestCatalogEntryDraft = Omit<SideQuestCatalogEntry, 'id'> & { i
 export interface SideQuestCatalogQuery {
   search?: string;
   status?: SideQuestCatalogStatus;
+}
+
+export interface SideQuestCatalogSyncState {
+  status: SideQuestCatalogSyncStatus;
+  lastRefreshAt?: string;
+  lastSuccessAt?: string;
+  fetchedCount: number;
+  errorCount: number;
+  message?: string;
 }

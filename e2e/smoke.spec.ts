@@ -75,3 +75,26 @@ test('supports search filters and attunement replacement flow', async ({ page })
   await expect(page.getByText('Attuned Four')).toBeVisible();
   await expect(page.getByText('Attuned Two')).toBeHidden();
 });
+
+test('snapshot catalog refresh supports manual catalog and reward entry', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByRole('button', { name: 'Filters' }).click();
+  await page.getByRole('button', { name: 'Catalog' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: 'Refresh Catalog' }).click();
+  await expect(page.getByText(/Catalog loaded from local snapshot/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Manual Entry' }).click();
+  await page.getByRole('textbox', { name: /^Name$/ }).fill('Beneath the Brewery');
+  await page.getByRole('button', { name: 'Save Manual Entry' }).click();
+  await page.getByRole('searchbox', { name: 'Search Catalog' }).fill('beneath');
+  await expect(page.getByText('Beneath the Brewery')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Add Rewards' }).click();
+  await page.getByRole('combobox', { name: 'Side Quest' }).selectOption({ label: 'Beneath the Brewery' });
+  await page.getByRole('textbox', { name: /Reward Item Names/ }).fill('Clockwork Token');
+  await page.getByRole('button', { name: 'Save Rewards' }).click();
+
+  await expect(page.getByText('Clockwork Token')).toBeVisible();
+});

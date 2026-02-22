@@ -96,7 +96,7 @@ describe('HomeRoute', () => {
 
     await user.clear(screen.getByRole('searchbox', { name: /search/i }));
     await user.click(screen.getByRole('button', { name: /^filters$/i }));
-    await user.selectOptions(screen.getByRole('combobox', { name: /^source type$/i }), 'sideQuest');
+    await user.selectOptions(screen.getByRole('combobox', { name: /^quest type$/i }), 'sideQuest');
     await user.click(screen.getByRole('button', { name: /^done$/i }));
     await waitFor(() => expect(screen.getByText('Cask Key')).toBeInTheDocument());
     expect(screen.queryByText('Moon Charm')).not.toBeInTheDocument();
@@ -144,5 +144,64 @@ describe('HomeRoute', () => {
     await user.click(screen.getByRole('button', { name: /^done$/i }));
     await waitFor(() => expect(screen.getByText('Attuned Four')).toBeInTheDocument());
     expect(screen.queryByText('Attuned Two')).not.toBeInTheDocument();
+  });
+
+  it('supports manual catalog entry and side quest reward flow', async () => {
+    const user = userEvent.setup();
+    render(<HomeRoute />);
+
+    await user.click(await screen.findByRole('button', { name: /^filters$/i }));
+    await user.click(screen.getByRole('button', { name: /^catalog$/i }));
+    await user.click(screen.getByRole('button', { name: /^done$/i }));
+    await user.click(screen.getByRole('button', { name: /manual entry/i }));
+
+    const editor = await screen.findByRole('heading', { name: /manual side quest entry/i });
+    const form = editor.closest('form');
+    expect(form).not.toBeNull();
+    const formQueries = within(form as HTMLElement);
+
+    await user.type(formQueries.getByRole('textbox', { name: /^name$/i }), 'Beneath the Brewery');
+    await user.click(formQueries.getByRole('button', { name: /save manual entry/i }));
+
+    await user.type(screen.getByRole('searchbox', { name: /search catalog/i }), 'beneath');
+    await waitFor(() => expect(screen.getByText('Beneath the Brewery')).toBeInTheDocument());
+    expect(screen.getByText('manual')).toBeInTheDocument();
+    expect(screen.getByText('No description available.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /add rewards/i }));
+    await user.selectOptions(screen.getByRole('combobox', { name: /side quest/i }), 'Beneath the Brewery');
+    await user.type(
+      screen.getByRole('textbox', { name: /reward item names/i }),
+      'Clockwork Token\nMossy Key'
+    );
+    await user.click(screen.getByRole('button', { name: /save rewards/i }));
+
+    await waitFor(() => expect(screen.getByText('Clockwork Token')).toBeInTheDocument());
+    expect(screen.getByText('Mossy Key')).toBeInTheDocument();
+  });
+
+  it('loads catalog from local snapshot and still allows manual catalog updates', async () => {
+    const user = userEvent.setup();
+    render(<HomeRoute />);
+
+    await user.click(await screen.findByRole('button', { name: /^add rewards$/i }));
+    const rewardHeading = await screen.findByRole('heading', { name: /add side quest rewards/i });
+    const rewardForm = rewardHeading.closest('form');
+    expect(rewardForm).not.toBeNull();
+    const rewardQueries = within(rewardForm as HTMLElement);
+
+    await user.click(rewardQueries.getByRole('button', { name: /^catalog$/i }));
+    await user.click(rewardQueries.getByRole('button', { name: /^close$/i }));
+    await user.click(screen.getByRole('button', { name: /refresh catalog/i }));
+
+    await waitFor(() => expect(screen.getByText(/catalog loaded from local snapshot/i)).toBeInTheDocument());
+    expect(screen.getByText(/status:/i)).toHaveTextContent(/success/i);
+
+    await user.click(screen.getByRole('button', { name: /manual entry/i }));
+    await user.type(screen.getByRole('textbox', { name: /^name$/i }), 'Offline Quest');
+    await user.click(screen.getByRole('button', { name: /save manual entry/i }));
+
+    await user.type(screen.getByRole('searchbox', { name: /search catalog/i }), 'offline');
+    await waitFor(() => expect(screen.getByText('Offline Quest')).toBeInTheDocument());
   });
 });

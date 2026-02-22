@@ -16,7 +16,8 @@
     "test:component": "vitest run src/routes",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:smoke": "playwright test e2e/smoke.spec.ts"
+    "test:e2e:smoke": "playwright test e2e/smoke.spec.ts",
+    "catalog:scrape": "node scripts/scrape-side-quests.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

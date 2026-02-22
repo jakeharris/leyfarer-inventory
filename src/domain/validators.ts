@@ -2,11 +2,13 @@ import {
   magicRarities,
   saveAbilities,
   sideQuestStatuses,
+  sideQuestSyncStatuses,
   sourceTypes,
   type Item,
   type ItemDraft,
   type MagicItemDetails,
   type SideQuestCatalogEntry,
+  type SideQuestCatalogSyncState,
   type SourceType
 } from './types';
 
@@ -387,6 +389,7 @@ export const normalizeSideQuestCatalogEntry = (
   const name = requiredString(input.name, 'name');
   const status = asEnum(input.status, sideQuestStatuses, 'status', 'manual');
 
+  const description = optionalTrimmedString(input.description);
   const thumbnailUrl = optionalTrimmedString(input.thumbnailUrl);
   const sourceUrl = optionalTrimmedString(input.sourceUrl);
   const lastSeenAt = input.lastSeenAt ? optionalIsoDateString(input.lastSeenAt) : undefined;
@@ -394,6 +397,7 @@ export const normalizeSideQuestCatalogEntry = (
   return {
     id,
     name,
+    description,
     thumbnailUrl,
     sourceUrl,
     lastSeenAt,
@@ -407,6 +411,33 @@ export const normalizeSideQuestCatalog = (value: unknown): SideQuestCatalogEntry
   }
 
   return value.map((entry) => normalizeSideQuestCatalogEntry(entry));
+};
+
+export const normalizeSideQuestCatalogSyncState = (value: unknown): SideQuestCatalogSyncState => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {
+      status: 'idle',
+      fetchedCount: 0,
+      errorCount: 0
+    };
+  }
+
+  const input = value as Record<string, unknown>;
+  const status = asEnum(input.status, sideQuestSyncStatuses, 'status', 'idle');
+  const lastRefreshAt = input.lastRefreshAt ? optionalIsoDateString(input.lastRefreshAt) : undefined;
+  const lastSuccessAt = input.lastSuccessAt ? optionalIsoDateString(input.lastSuccessAt) : undefined;
+  const fetchedCount = optionalPositiveInt(input.fetchedCount) ?? 0;
+  const errorCount = optionalPositiveInt(input.errorCount) ?? 0;
+  const message = optionalTrimmedString(input.message);
+
+  return {
+    status,
+    lastRefreshAt,
+    lastSuccessAt,
+    fetchedCount,
+    errorCount,
+    message
+  };
 };
 
 export const ensureAttunementLimit = (items: Item[]): void => {
