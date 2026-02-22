@@ -288,6 +288,7 @@ export const HomeRoute = () => {
   const [showCatalogEditor, setShowCatalogEditor] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
   const [attunementTargetId, setAttunementTargetId] = useState<string | null>(null);
   const [replacementId, setReplacementId] = useState<string>('');
   const [catalogRefreshPending, setCatalogRefreshPending] = useState(false);
@@ -526,6 +527,37 @@ export const HomeRoute = () => {
     setReplacementId('');
   };
 
+  const onRequestRemove = (item: Item) => {
+    setError(null);
+    setRemoveTargetId(item.id);
+  };
+
+  const closeRemoveModal = () => {
+    setRemoveTargetId(null);
+  };
+
+  const onConfirmRemove = async () => {
+    if (!removeTargetId) {
+      return;
+    }
+
+    setError(null);
+
+    try {
+      await repository.remove(removeTargetId);
+      if (editingId === removeTargetId) {
+        closeComposer();
+      }
+      if (attunementTargetId === removeTargetId) {
+        closeAttunementModal();
+      }
+      closeRemoveModal();
+      await loadItems();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Unable to remove item');
+    }
+  };
+
   const onConfirmReplacement = async () => {
     if (!attunementTargetId || !replacementId) {
       return;
@@ -694,6 +726,10 @@ export const HomeRoute = () => {
             Edit
           </button>
 
+          <button type="button" className="button-secondary" onClick={() => onRequestRemove(item)}>
+            Remove
+          </button>
+
           {isAttunable ? (
             <button type="button" onClick={() => void onToggleAttunement(item)}>
               {item.magicDetails?.attuned ? 'Unattune' : 'Attune'}
@@ -722,6 +758,7 @@ export const HomeRoute = () => {
   const attunementTarget = attunementTargetId
     ? items.find((item) => item.id === attunementTargetId) ?? null
     : null;
+  const removeTarget = removeTargetId ? items.find((item) => item.id === removeTargetId) ?? null : null;
 
   if (status === 'loading') {
     return (
@@ -1118,6 +1155,24 @@ export const HomeRoute = () => {
               Replace Selected
             </button>
             <button type="button" className="button-secondary" onClick={closeAttunementModal}>
+              Cancel
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {removeTarget ? (
+        <section className="attunement-modal" role="dialog" aria-modal="true" aria-label="Remove item">
+          <h3>Remove Item?</h3>
+          <p>
+            Remove <strong>{removeTarget.name}</strong> from inventory?
+          </p>
+
+          <div className="form-actions">
+            <button type="button" className="button-danger" onClick={() => void onConfirmRemove()}>
+              Remove Item
+            </button>
+            <button type="button" className="button-secondary" onClick={closeRemoveModal}>
               Cancel
             </button>
           </div>

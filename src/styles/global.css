@@ -465,6 +465,11 @@ button {
   color: #1d2950;
 }
 
+.button-danger {
+  background: #87263a;
+  color: #fff4f6;
+}
+
 .bottom-nav {
   position: fixed;
   bottom: 0;

@@ -180,6 +180,25 @@ describe('HomeRoute', () => {
     expect(screen.getByText('Mossy Key')).toBeInTheDocument();
   });
 
+  it('supports removing an item from inventory', async () => {
+    const user = userEvent.setup();
+    render(<HomeRoute />);
+    await user.click(await screen.findByRole('button', { name: /add item/i }));
+
+    await user.type(screen.getByRole('textbox', { name: /^name$/i }), 'Traveler Rope');
+    await user.click(screen.getByRole('button', { name: /save item/i }));
+    await waitFor(() => expect(screen.getByText('Traveler Rope')).toBeInTheDocument());
+
+    const itemCard = screen.getByText('Traveler Rope').closest('li');
+    expect(itemCard).not.toBeNull();
+    await user.click(within(itemCard as HTMLElement).getByRole('button', { name: /^remove$/i }));
+
+    await screen.findByRole('dialog', { name: /remove item/i });
+    await user.click(screen.getByRole('button', { name: /^remove item$/i }));
+
+    await waitFor(() => expect(screen.queryByText('Traveler Rope')).not.toBeInTheDocument());
+  });
+
   it('loads catalog from local snapshot and still allows manual catalog updates', async () => {
     const user = userEvent.setup();
     render(<HomeRoute />);

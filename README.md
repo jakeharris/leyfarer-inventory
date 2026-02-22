@@ -47,6 +47,7 @@ Web app for managing Mocha's inventory in *The Leyfarer's Chronicle* (2024 5E), 
   - Consumables
   - Source filter (quest/session)
   - Keyword search
+- Remove action available on item cards with confirmation before deletion.
 
 1. Consumable Spend
 
