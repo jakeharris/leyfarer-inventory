@@ -24,9 +24,10 @@ export const BottomSheet = ({ open, title, onClose, children, closeLabel = 'Clos
 
   useEffect(() => {
     if (open) {
+      setVisible(false);
       setRendered(true);
-      requestAnimationFrame(() => setVisible(true));
-      return;
+      const timeoutId = window.setTimeout(() => setVisible(true), 16);
+      return () => window.clearTimeout(timeoutId);
     }
 
     setVisible(false);
